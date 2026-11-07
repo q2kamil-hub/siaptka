@@ -287,7 +287,7 @@
     </div>
 
     <p class="error-msg" id="auth-msg"></p>
-    <a href="/" class="back-link">← Kembali ke pilihan peran</a>
+    <a href="./" class="back-link">← Kembali ke pilihan peran</a>
   </div>
 </div>
 
@@ -560,6 +560,7 @@ function doActivate() {
 
   if (!kode || !email || !nama || !pass) { msg.textContent = 'Kode, email, nama, dan password wajib diisi.'; return; }
   if (pass.length < 6) { msg.textContent = 'Password minimal 6 karakter.'; return; }
+  if (/\s/.test(pass)) { msg.textContent = 'Password tidak boleh mengandung spasi.'; return; }
 
   msg.textContent = ''; btn.disabled = true; btn.textContent = 'Memproses...';
 
@@ -974,6 +975,9 @@ function doEditProfile() {
   var warn = document.getElementById('edit-profile-warning');
 
   if (!nama) { warn.textContent = 'Nama wajib diisi.'; warn.style.display = 'block'; return; }
+
+  if (password && /\s/.test(password)) { warn.textContent = 'Password baru tidak boleh mengandung spasi.'; warn.style.display = 'block'; return; }
+  if (currentPassword && /\s/.test(currentPassword)) { warn.textContent = 'Password saat ini tidak boleh mengandung spasi.'; warn.style.display = 'block'; return; }
 
   btn.disabled = true; btn.textContent = 'Menyimpan...';
 
