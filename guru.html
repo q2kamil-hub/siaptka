@@ -287,7 +287,7 @@
     </div>
 
     <p class="error-msg" id="auth-msg"></p>
-    <a href="index.html" class="back-link">← Kembali ke pilihan peran</a>
+    <a href="/" class="back-link">← Kembali ke pilihan peran</a>
   </div>
 </div>
 
@@ -363,6 +363,37 @@
   </div>
 </div>
 
+<!-- ============ MODAL: EDIT KELAS ============ -->
+<div id="modal-edit" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Edit Kelas</h3>
+      <button class="close" onclick="closeModal('modal-edit')">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="edit-warning" style="color:var(--danger); font-size:13px; margin-bottom:16px; display:none"></p>
+      <label>Nama Kelas</label>
+      <input type="text" id="edit-nama-kelas" placeholder="Nama kelas">
+
+      <label>Durasi (menit)</label>
+      <input type="number" id="edit-durasi" value="60" min="1">
+
+      <label style="display:flex; gap:8px; align-items:center; margin-top:16px">
+        <input type="checkbox" id="edit-acak" style="width:auto">
+        <span>Acak urutan soal per murid</span>
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:8px">
+        <input type="checkbox" id="edit-pembahasan" style="width:auto">
+        <span>Tampilkan pembahasan ke murid</span>
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit')">Batal</button>
+      <button class="btn btn-primary" id="btn-save-edit" onclick="doEditClass()">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL: DETAIL KELAS ============ -->
 <div id="modal-detail" class="overlay hidden">
   <div class="modal modal-wide">
@@ -380,6 +411,8 @@
         <div id="detail-status-wrap"></div>
         <div style="margin-left:auto; display:flex; gap:8px">
           <button class="btn btn-outline btn-sm" id="btn-toggle-status" onclick="toggleClassStatus()">—</button>
+          <button class="btn btn-primary btn-sm" id="btn-edit-class" onclick="openEditModal()" disabled>Edit</button>
+          <button class="btn btn-danger btn-sm" id="btn-delete-class" onclick="doDeleteClassConfirm()" disabled>Hapus</button>
         </div>
       </div>
 
@@ -702,6 +735,23 @@ function renderClassDetail(res) {
   toggleBtn.textContent = status === 'open' ? 'Tutup Kelas' : 'Buka Kelas';
   toggleBtn.className = status === 'open' ? 'btn btn-danger btn-sm' : 'btn btn-primary btn-sm';
 
+  // Cek apakah sudah ada murid yang submit
+  var hasSubmitted = res.students && res.students.some(function (s) { return s.selesai === true; });
+
+  var editBtn = document.getElementById('btn-edit-class');
+  var delBtn = document.getElementById('btn-delete-class');
+  if (hasSubmitted || status === 'deleted') {
+    editBtn.disabled = true;
+    delBtn.disabled = true;
+    editBtn.title = 'Tidak dapat diedit karena sudah ada murid yang mengumpulkan jawaban.';
+    delBtn.title = 'Tidak dapat dihapus karena sudah ada murid yang mengumpulkan jawaban.';
+  } else {
+    editBtn.disabled = false;
+    delBtn.disabled = false;
+    editBtn.title = '';
+    delBtn.title = '';
+  }
+
   renderMuridTable(res.students);
 }
 
@@ -782,6 +832,83 @@ function toggleClassStatus() {
     }
   }).catch(function (err) {
     toast(API.friendlyError(err), 'error');
+  });
+}
+
+// ==========================================
+// EDIT / HAPUS KELAS
+// ==========================================
+function openEditModal() {
+  if (!state.currentClass) return;
+  var c = state.currentClass;
+
+  document.getElementById('edit-nama-kelas').value = c.nama_kelas || '';
+  document.getElementById('edit-durasi').value = c.durasi_menit || 60;
+  document.getElementById('edit-acak').checked = c.acak === true;
+  document.getElementById('edit-pembahasan').checked = c.tampil_pembahasan === true;
+  document.getElementById('edit-warning').style.display = 'none';
+
+  document.getElementById('modal-edit').classList.remove('hidden');
+}
+
+function doEditClass() {
+  if (!state.currentClass) return;
+  var nama = document.getElementById('edit-nama-kelas').value.trim();
+  var durasi = parseInt(document.getElementById('edit-durasi').value, 10) || 60;
+  var acak = document.getElementById('edit-acak').checked;
+  var pembahasan = document.getElementById('edit-pembahasan').checked;
+  var btn = document.getElementById('btn-save-edit');
+  var warn = document.getElementById('edit-warning');
+
+  if (!nama) { warn.textContent = 'Nama kelas wajib diisi.'; warn.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  API.editClass(state.currentClass.id, {
+    nama_kelas: nama,
+    durasi_menit: durasi,
+    acak: acak,
+    tampil_pembahasan: pembahasan
+  }).then(function (res) {
+    if (res.ok) {
+      toast('Kelas diperbarui.', 'success');
+      closeModal('modal-edit');
+      openClassDetail(state.currentClass.id);
+      loadClasses();
+    } else {
+      warn.textContent = res.message || 'Gagal memperbarui kelas.';
+      warn.style.display = 'block';
+    }
+  }).catch(function (err) {
+    toast(API.friendlyError(err), 'error');
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = 'Simpan Perubahan';
+  });
+}
+
+function doDeleteClassConfirm() {
+  if (!state.currentClass) return;
+  if (!confirm('Yakin ingin menyembunyikan kelas "' + state.currentClass.nama_kelas + '"?\nData murid dan nilai akan tetap aman di database.')) return;
+  doDeleteClass();
+}
+
+function doDeleteClass() {
+  if (!state.currentClass) return;
+  var btn = document.getElementById('btn-delete-class');
+  btn.disabled = true; btn.textContent = 'Menghapus...';
+
+  API.deleteClass(state.currentClass.id).then(function (res) {
+    if (res.ok) {
+      toast('Kelas disembunyikan dari dashboard.', 'success');
+      closeModal('modal-detail');
+      loadClasses();
+    } else {
+      toast(res.message || 'Gagal menghapus kelas.', 'error');
+    }
+  }).catch(function (err) {
+    toast(API.friendlyError(err), 'error');
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = 'Hapus';
   });
 }
 

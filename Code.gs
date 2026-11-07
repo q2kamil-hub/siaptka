@@ -170,6 +170,8 @@ function doGet(e) {
       case 'getClassDetail':       result = handleGetClassDetail(p); break;
       case 'getClassAnalytics':    result = handleGetClassAnalytics(p); break;
       case 'setClassClosed':       result = handleSetClassClosed(p); break;
+      case 'editClass':            result = handleEditClass(p); break;
+      case 'deleteClass':          result = handleDeleteClass(p); break;
 
       // ---- MURID ----
       case 'joinClass':            result = handleJoinClass(p); break;
@@ -358,7 +360,7 @@ function handleGetMyClasses(p) {
 
   var cSheet = getSheet(SH.CLASSES);
   var all = readAll(cSheet);
-  var mine = all.filter(function (c) { return String(c.teacher_id) === teacherId; });
+  var mine = all.filter(function (c) { return String(c.teacher_id) === teacherId && String(c.status).toLowerCase() !== 'deleted'; });
 
   // Hitung jumlah murid per kelas (ringan untuk Fase 1)
   var sSheet = getSheet(SH.STUDENTS);
@@ -560,6 +562,63 @@ function handleSetClassClosed(p) {
   return { ok: true };
 }
 
+function handleEditClass(p) {
+  var classId = String(p.class_id || '').trim();
+  var namaKelas = String(p.nama_kelas || '').trim();
+  var durasi = parseInt(p.durasi_menit, 10) || 60;
+  var acak = String(p.acak) === '1' || p.acak === true;
+  var tampilPembahasan = String(p.tampil_pembahasan) === '1' || p.tampil_pembahasan === true;
+
+  if (!classId) return { ok: false, message: 'class_id wajib.' };
+  if (!namaKelas) return { ok: false, message: 'Nama kelas wajib diisi.' };
+
+  var cSheet = getSheet(SH.CLASSES);
+  var row = findRowIndex(cSheet, 'id', classId);
+  if (row < 0) return { ok: false, message: 'Kelas tidak ditemukan.' };
+
+  // Cegah edit jika sudah ada murid yang submit jawaban
+  var rSheet = getSheet(SH.RESULTS);
+  var results = readAll(rSheet).filter(function (r) {
+    return String(r.class_id) === classId;
+  });
+  if (results.length > 0) {
+    return {
+      ok: false,
+      message: 'Kelas tidak dapat diubah karena sudah ada murid yang mengumpulkan jawaban.'
+    };
+  }
+
+  var headers = HEADERS.Classes;
+  var namaCol = headers.indexOf('nama_kelas') + 1;
+  var durasiCol = headers.indexOf('durasi_menit') + 1;
+  var acakCol = headers.indexOf('acak') + 1;
+  var pembahasanCol = headers.indexOf('tampil_pembahasan') + 1;
+
+  cSheet.getRange(row, namaCol).setValue(namaKelas);
+  cSheet.getRange(row, durasiCol).setValue(durasi);
+  cSheet.getRange(row, acakCol).setValue(acak ? '1' : '0');
+  cSheet.getRange(row, pembahasanCol).setValue(tampilPembahasan ? '1' : '0');
+
+  return { ok: true };
+}
+
+function handleDeleteClass(p) {
+  var classId = String(p.class_id || '').trim();
+  if (!classId) return { ok: false, message: 'class_id wajib.' };
+
+  var cSheet = getSheet(SH.CLASSES);
+  var row = findRowIndex(cSheet, 'id', classId);
+  if (row < 0) return { ok: false, message: 'Kelas tidak ditemukan.' };
+
+  var headers = HEADERS.Classes;
+  var statusCol = headers.indexOf('status') + 1;
+
+  // Soft delete: ubah status menjadi 'deleted', data murid & nilai tetap aman
+  cSheet.getRange(row, statusCol).setValue('deleted');
+
+  return { ok: true };
+}
+
 // ==================== HANDLER: MURID ====================
 
 function handleJoinClass(p) {
@@ -582,6 +641,9 @@ function handleJoinClass(p) {
 
   if (String(cls.status).toLowerCase() === 'closed') {
     return { ok: false, message: 'Kelas sudah ditutup oleh guru.' };
+  }
+  if (String(cls.status).toLowerCase() === 'deleted') {
+    return { ok: false, message: 'Kelas tidak tersedia.' };
   }
 
   // Validasi PIN jika kelas punya PIN

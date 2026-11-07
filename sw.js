@@ -21,11 +21,11 @@
 const CACHE_VERSION = 'siaptka-v6';
 const APP_SHELL = [
   './',
-  './index.html',
-  './landing.html',
-  './guru.html',
-  './murid.html',
-  './admin.html',
+  '/',
+  '/landing',
+  '/guru',
+  '/murid',
+  '/admin',
   './api.js',
   './laporan.js',
   './head.js',

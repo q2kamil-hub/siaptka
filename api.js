@@ -196,6 +196,31 @@
       return _request('setClassClosed', { class_id: classId, tutup: tutup ? '1' : '0' });
     },
 
+    /****
+     * Edit kelas (nama, durasi, acak, tampil_pembahasan).
+     * Ditolak jika sudah ada murid yang submit jawaban.
+     * @param {string} classId
+     * @param {object} payload { nama_kelas, durasi_menit, acak (bool), tampil_pembahasan (bool) }
+     */
+    editClass: function (classId, payload) {
+      return _request('editClass', {
+        class_id: classId,
+        nama_kelas: payload.nama_kelas,
+        durasi_menit: payload.durasi_menit,
+        acak: payload.acak ? '1' : '0',
+        tampil_pembahasan: payload.tampil_pembahasan ? '1' : '0'
+      });
+    },
+
+    /****
+     * Hapus kelas (soft delete). Ubah status menjadi 'deleted'.
+     * Data murid dan nilai tetap aman di database.
+     * @param {string} classId
+     */
+    deleteClass: function (classId) {
+      return _request('deleteClass', { class_id: classId });
+    },
+
     // ---------- MURID ----------
 
     /**

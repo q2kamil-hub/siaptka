@@ -4,7 +4,7 @@
   "description": "Platform latihan TKA untuk guru & siswa. Kode kelas, laporan diagnostik, dan ekspor nilai dalam satu tempat.",
   "lang": "id",
   "dir": "ltr",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -36,14 +36,14 @@
       "name": "Dashboard Guru",
       "short_name": "Guru",
       "description": "Buka dashboard guru",
-      "url": "./guru.html",
+      "url": "./guru",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Masuk Latihan",
       "short_name": "Murid",
       "description": "Masuk dengan kode kelas",
-      "url": "./murid.html",
+      "url": "./murid",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ],

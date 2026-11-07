@@ -5,9 +5,9 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ```markdown
 # 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
 
-> **Status**: Versi 1.4 ✅ (Fondasi & Fitur Inti Selesai)
-> **Terakhir diperbarui**: Setelah uji end-to-end Versi 1.4 sukses.
-> **Tahap Selanjutnya**: Versi 1.5 (Manajemen Kelas & Guru)
+> **Status**: Versi 1.5 ✅ (Manajemen Kelas & Estetika URL Selesai)
+> **Terakhir diperbarui**: Setelah implementasi Versi 1.5.
+> **Tahap Selanjutnya**: Versi 1.6 (Validasi & Normalisasi Input)
 
 ---
 
@@ -36,11 +36,11 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 
 | File | Fungsi | Status |
 |---|---|---|
-| `landing.html` | Halaman jualan publik (boleh dibuka di browser biasa) | ✅ |
-| `index.html` | Gerbang peran + **PWA gate ketat** | ✅ |
-| `guru.html` | Login/aktivasi guru, dashboard, buat kelas, laporan | ✅ |
-| `murid.html` | Join via kode kelas + PIN, kerjakan soal, submit, pembahasan | ✅ |
-| `admin.html` | Panel admin (token), kelola aktivasi & paket soal, reset aktif | ✅ |
+| `/` (index.html) | Gerbang peran + **PWA gate ketat** | ✅ |
+| `/landing` (landing.html) | Halaman jualan publik (boleh dibuka di browser biasa) | ✅ |
+| `/guru` (guru.html) | Login/aktivasi guru, dashboard, buat kelas, edit/hapus kelas, laporan | ✅ |
+| `/murid` (murid.html) | Join via kode kelas + PIN, kerjakan soal, submit, pembahasan | ✅ |
+| `/admin` (admin.html) | Panel admin (token), kelola aktivasi & paket soal, reset aktif | ✅ |
 | `api.js` | **Lapisan API terpusat** — satu-satunya file yang tahu GAS | ✅ |
 | `laporan.js` | Grafik (Chart.js) + ekspor Excel/PDF untuk guru | ✅ |
 | `head.js` | Injeksi terpusat favicon & meta tag (anti-duplikasi) | ✅ |
@@ -56,8 +56,8 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ### `Code.gs` — Fitur Kunci
 - **JSONP Routing**: `doGet(e)` dengan penanganan error (try-catch).
 - **Database Init**: `initSheet()` (idempoten, buat 6 tab + header otomatis).
-- **Guru**: Login (SHA-256 + salt), Aktivasi (kode 1 tahun), Pembuatan Kelas (validasi paket).
-- **Murid**: Join (validasi PIN & kelas), Ambil Soal (acak deterministik), Submit (pencocokan & pembahasan).
+- **Guru**: Login (SHA-256 + salt), Aktivasi (kode 1 tahun), Pembuatan Kelas (validasi paket), **Edit Kelas** (nama, durasi, acak, tampil pembahasan — diblokir jika sudah ada submit), **Hapus Kelas** (soft delete → status `deleted`, data murid & nilai aman).
+- **Murid**: Join (validasi PIN & kelas, ditolak jika kelas `deleted`), Ambil Soal (acak deterministik), Submit (pencocokan & pembahasan).
 - **Admin**: Generate Aktivasi, Daftar Guru, Kelola Paket (Create/Toggle/Delete), Statistik, Reset Aktif, Unduh Kode Unused.
 - **Sinkronisasi Tipe Data**: Menggunakan `String(cls.tampil_pembahasan) === '1'` untuk mengatasi konversi angka/teks dari Google Sheets.
 
@@ -129,25 +129,26 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 
 ## 7. Roadmap Pengembangan (Versi Selanjutnya)
 
-Karena Fondasi (Versi 1.4) sudah selesai, fokus beralih ke standar aplikasi SaaS (Software as a Service).
+Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software as a Service).
 
-### 🚀 Prioritas 1: Manajemen Kelas & Guru (Rencana Versi 1.5)
-- [ ] **Edit Kelas**: Guru dapat mengubah nama kelas, durasi, acak, dan tampil pembahasan selama belum ada murid yang submit.
-- [ ] **Hapus Kelas (Soft Delete)**: Mengubah status kelas menjadi `deleted` agar hilang dari dashboard, tapi data nilai tetap aman di database.
-- [ ] **Buka/Tutup Kelas Cepat**: Tombol di dashboard guru tanpa masuk ke detail.
-- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
+### ✅ Prioritas 1: Manajemen Kelas & Guru (Versi 1.5 — SELESAI)
+- [x] **Edit Kelas**: Guru dapat mengubah nama kelas, durasi, acak, dan tampil pembahasan selama belum ada murid yang submit.
+- [x] **Hapus Kelas (Soft Delete)**: Mengubah status kelas menjadi `deleted` agar hilang dari dashboard, tapi data nilai tetap aman di database.
+- [x] **Buka/Tutup Kelas Cepat**: Tombol di dashboard guru tanpa masuk ke detail (sudah ada dari v1.4).
+- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password (diposkan ke v1.6).
 
 ### 🛡️ Prioritas 2: Validasi & Normalisasi Input (Rencana Versi 1.6)
 - [ ] **Normalisasi Form**: `.trim()` dan standarisasi huruf (kapital nama, lowercase email) di semua input frontend & backend.
 - [ ] **Validasi PIN/Kode Kelas**: Pastikan input murid hanya huruf/angka, tanpa spasi.
 - [ ] **Validasi Form Kelas**: Durasi min 1 menit, max 180 menit.
+- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password (diposindah dari v1.5).
 
-### 👑 Prioritas 3: Penyempurnaan Admin (Rencana Versi 1.7)
+### 👑 Prioritas 3: Penyempurnaan Admin (Rencana Versi 1.8)
 - [ ] **Blokir/Nonaktifkan Guru**: Admin bisa menonaktifkan akun guru yang menyalahgunakan.
 - [ ] **Grafik Pendapatan**: Statistik tren aktivasi kode per bulan.
 - [ ] **Force Logout**: Mencabut sesi login guru dari jarak jauh.
 
-### 🎨 Prioritas 4: UX & Fitur Murid (Rencana Versi 1.8)
+### 🎨 Prioritas 4: UX & Fitur Murid (Rencana Versi 1.7)
 - [ ] **Auto-save Jawaban**: Simpan jawaban di `localStorage` agar tidak hilang saat refresh.
 - [ ] **Review Jawaban**: Tampilkan opsi jawaban murid yang salah (bukan hanya kunci).
 - [ ] **Mode Gelap**: Toggle di topbar guru/murid.
@@ -160,11 +161,36 @@ Karena Fondasi (Versi 1.4) sudah selesai, fokus beralih ke standar aplikasi SaaS
 
 ## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
 
-Untuk melanjutkan ke Versi 1.5, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend lengkap versi 1.4).
-2. **`api.js`** (Lapisan API lengkap versi 1.4).
-3. **`guru.html`** (Frontend guru yang akan diedit untuk fitur Manajemen Kelas).
+Untuk melanjutkan ke Versi 1.6, lampirkan file berikut ke chat baru:
+1. **`Code.gs`** (Backend lengkap versi 1.5).
+2. **`api.js`** (Lapisan API lengkap versi 1.5).
+3. **`guru.html`** (Frontend guru dengan fitur Manajemen Kelas & URL rewriting).
 4. **File ini (`Catatan_Konfigurasi.md`)**.
 
 *(File lain tidak perlu dilampirkan kecuali ada error spesifik di file tersebut).*
+
+---
+
+### ⚠️ Catatan Penting: Konfigurasi Server untuk URL Rewriting
+
+Menghapus ekstensi `.html` dari tautan hanya berfungsi jika server dikonfigurasi untuk melayani file `.html` saat URL tanpa ekstensi diakses. Berikut contoh konfigurasi:
+
+**Netlify** (`_redirects` di root publik):
+```
+/guru    /guru.html    200
+/murid   /murid.html   200
+/admin   /admin.html   200
+/landing /landing.html 200
+/        /index.html   200
+```
+
+**Apache (`.htaccess`)**:
+```
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-zA-Z0-9_-]+)$ $1.html [L]
+```
+
+**GitHub Pages**: Tidak mendukung rewrite native. Gunakan folder per halaman (mis. `guru/index.html`) atau hosting lain yang mendukung rewrite.
 ```
