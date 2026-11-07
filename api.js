@@ -221,6 +221,15 @@
       return _request('deleteClass', { class_id: classId });
     },
 
+    /****
+     * Edit profil guru (nama, sekolah, password opsional).
+     * Jika password diisi, current_password wajib juga diisi dan harus benar.
+     * @param {object} payload { teacher_id, nama, sekolah, password (opsional), current_password (wajib jika password diisi) }
+     */
+    updateTeacherProfile: function (payload) {
+      return _request('editTeacherProfile', payload);
+    },
+
     // ---------- MURID ----------
 
     /**

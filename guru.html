@@ -301,6 +301,7 @@
           <div class="name" id="user-nama">—</div>
           <div class="school" id="user-sekolah">—</div>
         </div>
+        <button class="btn btn-ghost btn-sm" onclick="openEditProfileModal()">Profil</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()">Keluar</button>
       </div>
     </div>
@@ -359,6 +360,34 @@
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-create')">Batal</button>
       <button class="btn btn-primary" id="btn-create-class" onclick="doCreateClass()">Buat Kelas</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EDIT PROFIL GURU ============ -->
+<div id="modal-edit-profile" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Edit Profil Guru</h3>
+      <button class="close" onclick="closeModal('modal-edit-profile')">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="edit-profile-warning" style="color:var(--danger); font-size:13px; margin-bottom:16px; display:none"></p>
+      <label>Nama Lengkap</label>
+      <input type="text" id="edit-profile-nama" placeholder="Nama lengkap">
+
+      <label>Sekolah</label>
+      <input type="text" id="edit-profile-sekolah" placeholder="Nama sekolah">
+
+      <label>Password Baru (opsional, min. 6 karakter)</label>
+      <input type="password" id="edit-profile-password" placeholder="••••••••">
+
+      <label>Password Saat Ini (wajib jika ingin ganti password)</label>
+      <input type="password" id="edit-profile-current-password" placeholder="••••••••">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-profile')">Batal</button>
+      <button class="btn btn-primary" id="btn-save-edit-profile" onclick="doEditProfile()">Simpan Perubahan</button>
     </div>
   </div>
 </div>
@@ -498,7 +527,7 @@ function switchAuthTab(tab) {
 }
 
 function doLogin() {
-  var email = document.getElementById('login-email').value.trim();
+  var email = document.getElementById('login-email').value.trim().toLowerCase();
   var pass = document.getElementById('login-password').value;
   var msg = document.getElementById('auth-msg');
   var btn = document.getElementById('btn-login');
@@ -521,9 +550,9 @@ function doLogin() {
 }
 
 function doActivate() {
-  var kode = document.getElementById('act-kode').value.trim();
-  var email = document.getElementById('act-email').value.trim();
-  var nama = document.getElementById('act-nama').value.trim();
+  var kode = document.getElementById('act-kode').value.trim().toUpperCase();
+  var email = document.getElementById('act-email').value.trim().toLowerCase();
+  var nama = document.getElementById('act-nama').value.trim().split(' ').map(function(w){ return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ');
   var sekolah = document.getElementById('act-sekolah').value.trim();
   var pass = document.getElementById('act-password').value;
   var msg = document.getElementById('auth-msg');
@@ -735,20 +764,30 @@ function renderClassDetail(res) {
   toggleBtn.textContent = status === 'open' ? 'Tutup Kelas' : 'Buka Kelas';
   toggleBtn.className = status === 'open' ? 'btn btn-danger btn-sm' : 'btn btn-primary btn-sm';
 
-  // Cek apakah sudah ada murid yang submit
+  // Cek apakah sudah ada murid yang submit (untuk tombol Edit)
   var hasSubmitted = res.students && res.students.some(function (s) { return s.selesai === true; });
 
   var editBtn = document.getElementById('btn-edit-class');
   var delBtn = document.getElementById('btn-delete-class');
+
+  // Edit: disabled jika sudah ada murid submit atau kelas sudah dihapus
   if (hasSubmitted || status === 'deleted') {
     editBtn.disabled = true;
-    delBtn.disabled = true;
     editBtn.title = 'Tidak dapat diedit karena sudah ada murid yang mengumpulkan jawaban.';
-    delBtn.title = 'Tidak dapat dihapus karena sudah ada murid yang mengumpulkan jawaban.';
   } else {
     editBtn.disabled = false;
-    delBtn.disabled = false;
     editBtn.title = '';
+  }
+
+  // Hapus: hanya diizinkan jika status kelas adalah 'closed'
+  if (status === 'deleted') {
+    delBtn.disabled = true;
+    delBtn.title = 'Kelas sudah dihapus.';
+  } else if (status !== 'closed') {
+    delBtn.disabled = true;
+    delBtn.title = 'Kelas harus ditutup terlebih dahulu sebelum dapat dihapus.';
+  } else {
+    delBtn.disabled = false;
     delBtn.title = '';
   }
 
@@ -909,6 +948,60 @@ function doDeleteClass() {
     toast(API.friendlyError(err), 'error');
   }).finally(function () {
     btn.disabled = false; btn.textContent = 'Hapus';
+  });
+}
+
+// ==========================================
+// EDIT PROFIL GURU
+// ==========================================
+function openEditProfileModal() {
+  if (!state.guru) return;
+  document.getElementById('edit-profile-nama').value = state.guru.nama || '';
+  document.getElementById('edit-profile-sekolah').value = state.guru.sekolah || '';
+  document.getElementById('edit-profile-password').value = '';
+  document.getElementById('edit-profile-current-password').value = '';
+  document.getElementById('edit-profile-warning').style.display = 'none';
+  document.getElementById('modal-edit-profile').classList.remove('hidden');
+}
+
+function doEditProfile() {
+  if (!state.guru) return;
+  var nama = document.getElementById('edit-profile-nama').value.trim();
+  var sekolah = document.getElementById('edit-profile-sekolah').value.trim();
+  var password = document.getElementById('edit-profile-password').value;
+  var currentPassword = document.getElementById('edit-profile-current-password').value;
+  var btn = document.getElementById('btn-save-edit-profile');
+  var warn = document.getElementById('edit-profile-warning');
+
+  if (!nama) { warn.textContent = 'Nama wajib diisi.'; warn.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  API.updateTeacherProfile({
+    teacher_id: state.guru.id,
+    nama: nama,
+    sekolah: sekolah,
+    password: password,
+    current_password: currentPassword
+  }).then(function (res) {
+    if (res.ok) {
+      toast('Profil diperbarui.', 'success');
+      closeModal('modal-edit-profile');
+      // Update session dan tampilan
+      state.guru.nama = nama;
+      state.guru.sekolah = sekolah;
+      API.saveSession(state.guru);
+      document.getElementById('user-nama').textContent = nama;
+      document.getElementById('user-sekolah').textContent = sekolah;
+      document.getElementById('greeting').textContent = 'Selamat datang, ' + nama + '!';
+    } else {
+      warn.textContent = res.message || 'Gagal memperbarui profil.';
+      warn.style.display = 'block';
+    }
+  }).catch(function (err) {
+    toast(API.friendlyError(err), 'error');
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = 'Simpan Perubahan';
   });
 }
 

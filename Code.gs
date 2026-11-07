@@ -172,6 +172,7 @@ function doGet(e) {
       case 'setClassClosed':       result = handleSetClassClosed(p); break;
       case 'editClass':            result = handleEditClass(p); break;
       case 'deleteClass':          result = handleDeleteClass(p); break;
+      case 'editTeacherProfile':   result = handleEditTeacherProfile(p); break;
 
       // ---- MURID ----
       case 'joinClass':            result = handleJoinClass(p); break;
@@ -317,6 +318,10 @@ function handleCreateClass(p) {
 
   if (!teacherId || !namaKelas || !paketId) {
     return { ok: false, message: 'Nama kelas dan paket soal wajib diisi.' };
+  }
+
+  if (durasi < 1 || durasi > 180) {
+    return { ok: false, message: 'Durasi kelas harus antara 1 dan 180 menit.' };
   }
 
   // Pastikan guru ada
@@ -572,6 +577,10 @@ function handleEditClass(p) {
   if (!classId) return { ok: false, message: 'class_id wajib.' };
   if (!namaKelas) return { ok: false, message: 'Nama kelas wajib diisi.' };
 
+  if (durasi < 1 || durasi > 180) {
+    return { ok: false, message: 'Durasi kelas harus antara 1 dan 180 menit.' };
+  }
+
   var cSheet = getSheet(SH.CLASSES);
   var row = findRowIndex(cSheet, 'id', classId);
   if (row < 0) return { ok: false, message: 'Kelas tidak ditemukan.' };
@@ -602,6 +611,55 @@ function handleEditClass(p) {
   return { ok: true };
 }
 
+function handleEditTeacherProfile(p) {
+  var teacherId = String(p.teacher_id || '').trim();
+  var nama = String(p.nama || '').trim();
+  var sekolah = String(p.sekolah || '').trim();
+  var password = String(p.password || '');
+  var currentPassword = String(p.current_password || '');
+
+  if (!teacherId) return { ok: false, message: 'teacher_id wajib.' };
+  if (!nama) return { ok: false, message: 'Nama wajib diisi.' };
+
+  var tSheet = getSheet(SH.TEACHERS);
+  var row = findRowIndex(tSheet, 'id', teacherId);
+  if (row < 0) return { ok: false, message: 'Guru tidak ditemukan.' };
+
+  if (password) {
+    if (password.length < 6) return { ok: false, message: 'Password minimal 6 karakter.' };
+    if (!currentPassword) return { ok: false, message: 'Password saat ini wajib diisi untuk mengganti password.' };
+
+    var rowVals = tSheet.getRange(row, 1, 1, tSheet.getLastColumn()).getValues()[0];
+    var teacherData = {};
+    HEADERS.Teachers.forEach(function (h, i) { teacherData[h] = rowVals[i]; });
+
+    var inputHash = hashPassword(currentPassword, teacherData.salt);
+    if (inputHash !== teacherData.password_hash) {
+      return { ok: false, message: 'Password saat ini salah.' };
+    }
+
+    var salt = generateSalt();
+    var hash = hashPassword(password, salt);
+
+    var namaCol = HEADERS.Teachers.indexOf('nama') + 1;
+    var sekolahCol = HEADERS.Teachers.indexOf('sekolah') + 1;
+    var hashCol = HEADERS.Teachers.indexOf('password_hash') + 1;
+    var saltCol = HEADERS.Teachers.indexOf('salt') + 1;
+
+    tSheet.getRange(row, namaCol).setValue(nama);
+    tSheet.getRange(row, sekolahCol).setValue(sekolah);
+    tSheet.getRange(row, hashCol).setValue(hash);
+    tSheet.getRange(row, saltCol).setValue(salt);
+  } else {
+    var namaCol = HEADERS.Teachers.indexOf('nama') + 1;
+    var sekolahCol = HEADERS.Teachers.indexOf('sekolah') + 1;
+    tSheet.getRange(row, namaCol).setValue(nama);
+    tSheet.getRange(row, sekolahCol).setValue(sekolah);
+  }
+
+  return { ok: true, nama: nama, sekolah: sekolah };
+}
+
 function handleDeleteClass(p) {
   var classId = String(p.class_id || '').trim();
   if (!classId) return { ok: false, message: 'class_id wajib.' };
@@ -612,6 +670,19 @@ function handleDeleteClass(p) {
 
   var headers = HEADERS.Classes;
   var statusCol = headers.indexOf('status') + 1;
+
+  // Baca status kelas saat ini
+  var cVals = cSheet.getRange(row, 1, 1, cSheet.getLastColumn()).getValues()[0];
+  var cls = {};
+  HEADERS.Classes.forEach(function (h, i) { cls[h] = cVals[i]; });
+
+  // Hapus hanya diperbolehkan jika kelas sudah dalam status closed
+  if (String(cls.status).toLowerCase() !== 'closed') {
+    return {
+      ok: false,
+      message: 'Kelas harus ditutup terlebih dahulu sebelum dapat dihapus.'
+    };
+  }
 
   // Soft delete: ubah status menjadi 'deleted', data murid & nilai tetap aman
   cSheet.getRange(row, statusCol).setValue('deleted');
@@ -629,6 +700,15 @@ function handleJoinClass(p) {
 
   if (!kode || !nama) {
     return { ok: false, message: 'Kode kelas dan nama wajib diisi.' };
+  }
+
+  // Validasi format kode kelas dan PIN (hanya huruf/angka, tanpa spasi)
+  var kodeRegex = /^[A-Z0-9]+$/;
+  if (!kodeRegex.test(kode)) {
+    return { ok: false, message: 'Kode kelas hanya boleh mengandung huruf dan angka, tanpa spasi.' };
+  }
+  if (pin && !/^[A-Z0-9]+$/.test(pin)) {
+    return { ok: false, message: 'PIN hanya boleh mengandung huruf dan angka, tanpa spasi.' };
   }
 
   var cSheet = getSheet(SH.CLASSES);

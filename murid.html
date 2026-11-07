@@ -375,6 +375,17 @@ function doJoin() {
   if (!kode) { msg.textContent = 'Kode kelas wajib diisi.'; return; }
   if (!nama) { msg.textContent = 'Nama wajib diisi.'; return; }
 
+  // Validasi format kode kelas dan PIN (hanya huruf/angka, tanpa spasi)
+  var kodeRegex = /^[A-Z0-9]+$/;
+  if (!kodeRegex.test(kode)) {
+    msg.textContent = 'Kode kelas hanya boleh mengandung huruf dan angka, tanpa spasi.';
+    return;
+  }
+  if (pin && !/^[A-Z0-9]+$/.test(pin)) {
+    msg.textContent = 'PIN hanya boleh mengandung huruf dan angka, tanpa spasi.';
+    return;
+  }
+
   msg.textContent = ''; btn.disabled = true; btn.textContent = 'Memeriksa...';
 
   API.joinClass(kode, nama, absen, pin).then(function (res) {

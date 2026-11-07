@@ -5,9 +5,9 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ```markdown
 # 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
 
-> **Status**: Versi 1.5 ✅ (Manajemen Kelas & Estetika URL Selesai)
-> **Terakhir diperbarui**: Setelah implementasi Versi 1.5.
-> **Tahap Selanjutnya**: Versi 1.6 (Validasi & Normalisasi Input)
+> **Status**: Versi 1.6 ✅ (Validasi & Normalisasi Input + Hapus Kelas dengan Syarat Tutup)
+> **Terakhir diperbarui**: Setelah implementasi Versi 1.6.
+> **Tahap Selanjutnya**: Versi 1.7 (UX & Fitur Murid)
 
 ---
 
@@ -135,13 +135,22 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
 - [x] **Edit Kelas**: Guru dapat mengubah nama kelas, durasi, acak, dan tampil pembahasan selama belum ada murid yang submit.
 - [x] **Hapus Kelas (Soft Delete)**: Mengubah status kelas menjadi `deleted` agar hilang dari dashboard, tapi data nilai tetap aman di database.
 - [x] **Buka/Tutup Kelas Cepat**: Tombol di dashboard guru tanpa masuk ke detail (sudah ada dari v1.4).
-- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password (diposkan ke v1.6).
+- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password (diposkan ke v1.7).
 
-### 🛡️ Prioritas 2: Validasi & Normalisasi Input (Rencana Versi 1.6)
-- [ ] **Normalisasi Form**: `.trim()` dan standarisasi huruf (kapital nama, lowercase email) di semua input frontend & backend.
-- [ ] **Validasi PIN/Kode Kelas**: Pastikan input murid hanya huruf/angka, tanpa spasi.
-- [ ] **Validasi Form Kelas**: Durasi min 1 menit, max 180 menit.
-- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password (diposindah dari v1.5).
+### ✅ Prioritas 2: Validasi & Normalisasi Input (Versi 1.6 — SELESAI)
+- [x] **Normalisasi Form**: `.trim()` dan standarisasi huruf (kapital nama, lowercase email) di semua input frontend & backend.
+  - Frontend: email di-lowercase di `doLogin`/`doActivate` (guru.html), kode kelas di-uppercase di `doActivate`, nama di-capitalize per kata di `doActivate` (guru.html), `.trim()` pada semua input form.
+  - Backend: email di-trim + lowercase di `handleTeacherLogin`/`handleActivateTeacher` (Code.gs), nama di-trim di `handleActivateTeacher`, kode di-trim + uppercase di `handleJoinClass`, nama di-trim di `handleJoinClass`.
+- [x] **Validasi PIN/Kode Kelas**: Pastikan input murid hanya huruf/angka, tanpa spasi.
+  - Frontend: regex `/^[A-Z0-9]+$/` di `doJoin()` (murid.html) sebelum panggil API.
+  - Backend: regex `/^[A-Z0-9]+$/` di `handleJoinClass()` (Code.gs) untuk kode dan PIN.
+- [x] **Validasi Form Kelas**: Durasi min 1 menit, max 180 menit.
+  - Frontend: input durasi memiliki `min="1"` di modal buat/edit kelas (guru.html).
+  - Backend: cek `durasi < 1 || durasi > 180` di `handleCreateClass` dan `handleEditClass` (Code.gs).
+- [x] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
+  - Frontend: modal baru `modal-edit-profile` di `guru.html`, tombol "Profil" di topbar, fungsi `openEditProfileModal()` dan `doEditProfile()`.
+  - Backend: handler baru `handleEditTeacherProfile` (Code.gs) dengan validasi password saat ini saat mengganti password, API `updateTeacherProfile` di `api.js`.
+- [x] **Hapus Kelas dengan Syarat Tutup**: Kelas hanya dapat dihapus (soft delete) jika statusnya `closed` (tutup). Jika belum ditutup, penghapusan ditolak dengan pesan *"Kelas harus ditutup terlebih dahulu sebelum dapat dihapus."*
 
 ### 👑 Prioritas 3: Penyempurnaan Admin (Rencana Versi 1.8)
 - [ ] **Blokir/Nonaktifkan Guru**: Admin bisa menonaktifkan akun guru yang menyalahgunakan.
@@ -149,6 +158,7 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
 - [ ] **Force Logout**: Mencabut sesi login guru dari jarak jauh.
 
 ### 🎨 Prioritas 4: UX & Fitur Murid (Rencana Versi 1.7)
+- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
 - [ ] **Auto-save Jawaban**: Simpan jawaban di `localStorage` agar tidak hilang saat refresh.
 - [ ] **Review Jawaban**: Tampilkan opsi jawaban murid yang salah (bukan hanya kunci).
 - [ ] **Mode Gelap**: Toggle di topbar guru/murid.
@@ -161,13 +171,19 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
 
 ## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
 
-Untuk melanjutkan ke Versi 1.6, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend lengkap versi 1.5).
-2. **`api.js`** (Lapisan API lengkap versi 1.5).
+Untuk melanjutkan ke Versi 1.7, lampirkan file berikut ke chat baru:
+1. **`Code.gs`** (Backend lengkap versi 1.6).
+2. **`api.js`** (Lapisan API lengkap versi 1.6).
 3. **`guru.html`** (Frontend guru dengan fitur Manajemen Kelas & URL rewriting).
 4. **File ini (`Catatan_Konfigurasi.md`)**.
 
 *(File lain tidak perlu dilampirkan kecuali ada error spesifik di file tersebut).*
+
+---
+
+### ⚠️ Catatan Penting: Copy-Paste Manual Code.gs ke Google Apps Script
+
+Setelah menyelesaikan perubahan kode di VS Code, salin isi file `Code.gs` dan tempel secara manual ke editor Google Apps Script, lalu pilih **"New version"** saat deploy. Google Apps Script tidak mendukung upload file `.gs` secara langsung — harus dilakukan copy-paste manual.
 
 ---
 
