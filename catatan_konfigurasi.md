@@ -152,16 +152,28 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
   - Backend: handler baru `handleEditTeacherProfile` (Code.gs) dengan validasi password saat ini saat mengganti password, API `updateTeacherProfile` di `api.js`.
 - [x] **Hapus Kelas dengan Syarat Tutup**: Kelas hanya dapat dihapus (soft delete) jika statusnya `closed` (tutup). Jika belum ditutup, penghapusan ditolak dengan pesan *"Kelas harus ditutup terlebih dahulu sebelum dapat dihapus."*
 
-### 🚀 Versi 2.0 — Penyatuan Semua Prioritas Tersisa (Rencana)
-- [ ] **Blokir/Nonaktifkan Guru** (dari Prioritas 3): Admin bisa menonaktifkan akun guru yang menyalahgunakan.
-- [ ] **Grafik Pendapatan** (dari Prioritas 3): Statistik tren aktivasi kode per bulan di panel admin.
-- [ ] **Force Logout** (dari Prioritas 3): Mencabut sesi login guru dari jarak jauh melalui panel admin.
-- [ ] **Auto-save Jawaban** (dari Prioritas 4): Simpan jawaban murid di `localStorage` agar tidak hilang saat refresh.
-- [ ] **Review Jawaban** (dari Prioritas 4): Tampilkan opsi jawaban murid yang salah, bukan hanya kunci jawaban.
-- [ ] **Mode Gelap** (dari Prioritas 4): Toggle tema gelap di topbar guru & murid.
-- [ ] **Backup Spreadsheet Otomatis** (dari Prioritas 5): Script GAS untuk backup mingguan spreadsheet.
-- [ ] **Halaman 404 Custom** (dari Prioritas 5): Tampilan error yang ramah pengguna saat halaman tidak ditemukan.
-- [x] **Edit Profil Guru** (dari Prioritas 4): Sudah selesai di Versi 1.6, dilewati.
+Versi 1.7 — Auto-save & Review Jawaban (Fokus Murid)
+Ini adalah fitur UX yang paling mendesak agar murid tidak panik jika koneksi terputus atau tidak sengaja me-refresh.
+□ Auto-save: Simpan jawaban sementara di localStorage murid.
+□ Review Jawaban: Tampilkan mana opsi yang dipilih murid (benar/salah) di halaman pembahasan.
+
+Versi 1.8 — Mode Gelap (Dark Mode)
+Fitur estetika yang berdampak besar pada kenyamanan pengguna.
+□ Toggle tema (Terang/Gelap) di halaman Guru dan Murid.
+□ Simpan preferensi tema di localStorage.
+□ Sesuaikan variabel warna CSS (:root).
+
+Versi 1.9 — Manajemen Lanjutan Admin
+Fitur kontrol untuk Anda sebagai pemilik aplikasi.
+□ Blokir/Nonaktifkan Guru: Tambah kolom is_blocked di database, dan tombol aksi di admin.html.
+□ Force Logout: Mekanisme untuk memaksa guru logout dari perangkat lain.
+□ (Opsional) Grafik tren aktivasi kode.
+
+Versi 2.0 — Utilitas & Optimasi (Rilis Final)
+Penyempurnaan teknis sebelum rilis besar.
+□ Halaman 404.html kustom.
+□ (Opsional) Script backup mingguan di GAS.
+□ Pembaruan Catatan_Konfigurasi.md secara menyeluruh untuk menandai rilis stabil.
 
 ---
 
