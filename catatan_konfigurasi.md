@@ -169,11 +169,21 @@ Fitur UX agar murid tidak kehilangan jawaban saat refresh atau koneksi terputus.
 
 **Batasan yang diketahui**: draft bersifat per-browser/per-perangkat (hilang jika data browser dibersihkan atau mode incognito), tidak dikirim ke server, dan hanya dapat dipulihkan bila murid join dengan **nama yang sama**.
 
-Versi 1.8 — Mode Gelap (Dark Mode)
-Fitur estetika yang berdampak besar pada kenyamanan pengguna.
-□ Toggle tema (Terang/Gelap) di halaman Guru dan Murid.
-□ Simpan preferensi tema di localStorage.
-□ Sesuaikan variabel warna CSS (:root).
+### Versi 1.8 — Pengembangan Variasi Tipe Soal
+
+Saat ini, soal yang ditampilkan kepada murid dan format XML yang tersedia mendukung tipe **pilihan ganda** dan **isian singkat**. Pada versi ini, pengembangan difokuskan pada penambahan variasi tipe soal agar paket latihan dapat menyajikan lebih banyak bentuk pertanyaan.
+
+□ Menambahkan dukungan tipe soal **uraian**.  
+□ Menambahkan dukungan tipe soal **benar/salah**.  
+□ Menambahkan dukungan tipe soal **pilihan ganda kompleks** (murid dapat memilih lebih dari satu jawaban).  
+□ **Penilaian pilihan ganda kompleks secara parsial**: murid memperoleh poin untuk setiap jawaban benar yang dipilih, tanpa harus memilih seluruh jawaban benar untuk mendapat nilai. Jawaban yang keliru tidak memperoleh poin.
+□ Menambahkan dukungan tipe soal **memasangkan jawaban**.  
+□ Memperbarui format XML agar dapat menyimpan pertanyaan, pilihan atau pasangan jawaban, kunci, dan skor sesuai tipe soal.  
+□ Memperbarui halaman murid agar setiap tipe soal ditampilkan dengan bentuk input dan interaksi yang sesuai.  
+□ Menyesuaikan proses penyimpanan jawaban, penilaian, dan pembahasan berdasarkan tipe soal.  
+□ Memastikan tipe soal yang sudah tersedia—pilihan ganda dan isian singkat—tetap berfungsi seperti sebelumnya.
+
+**Catatan pengembangan**: Mekanisme penilaian dan pembahasan untuk setiap tipe soal, khususnya uraian dan pilihan ganda kompleks, perlu disesuaikan dengan karakteristik jawabannya.
 
 Versi 1.9 — Manajemen Lanjutan Admin
 Fitur kontrol untuk Anda sebagai pemilik aplikasi.

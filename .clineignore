@@ -1,0 +1,20 @@
+# Dependensi (wajib)
+node_modules/
+**/node_modules/
+
+# Output build (wajib)
+dist/
+build/
+.next/
+out/
+
+# File data besar / generated
+*.csv
+*.xlsx
+*.sqlite
+*.min.js
+src/generated/
+
+# File environment variable (jika ada)
+.env
+.env.*
