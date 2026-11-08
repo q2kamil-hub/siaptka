@@ -5,9 +5,9 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ```markdown
 # 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
 
-> **Status**: Versi 1.6 ✅ (Validasi & Normalisasi Input + Hapus Kelas dengan Syarat Tutup)
-> **Terakhir diperbarui**: Setelah implementasi Versi 1.6.
-> **Tahap Selanjutnya**: Versi 2.0 (Penyatukan Prioritas 3, 4, 5 — Admin, UX Murid, Utilitas)
+> **Status**: Versi 1.7 ✅ (Auto-save Jawaban Murid + Review Semua Opsi di Pembahasan)
+> **Terakhir diperbarui**: Setelah implementasi Versi 1.7.
+> **Tahap Selanjutnya**: Versi 1.8 (Mode Gelap — Toggle Terang/Gelap untuk Guru & Murid)
 
 ---
 
@@ -23,6 +23,7 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 | **Metode API** | JSONP (GET + callback) via lapisan `api.js` |
 | **Session Guru** | `localStorage` (`siaptka_guru_session`) |
 | **Session Admin** | `localStorage` (`siaptka_admin_token`) |
+| **Draft Jawaban Murid** | `localStorage` (`siaptka_autosave_[class_id]_[student_id]`, auto-hapus setelah submit, TTL 7 hari) |
 
 ### Alur Peran
 ```
@@ -39,7 +40,7 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 | `/` (index.html) | Gerbang peran + **PWA gate ketat** | ✅ |
 | `/landing` (landing.html) | Halaman jualan publik (boleh dibuka di browser biasa) | ✅ |
 | `/guru` (guru.html) | Login/aktivasi guru, dashboard, buat kelas, edit/hapus kelas, laporan | ✅ |
-| `/murid` (murid.html) | Join via kode kelas + PIN, kerjakan soal, submit, pembahasan | ✅ |
+| `/murid` (murid.html) | Join via kode kelas + PIN, kerjakan soal (auto-save), submit, pembahasan + review opsi | ✅ |
 | `/admin` (admin.html) | Panel admin (token), kelola aktivasi & paket soal, reset aktif | ✅ |
 | `api.js` | **Lapisan API terpusat** — satu-satunya file yang tahu GAS | ✅ |
 | `laporan.js` | Grafik (Chart.js) + ekspor Excel/PDF untuk guru | ✅ |
@@ -120,6 +121,7 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 | **Password Hashing** | SHA-256 + salt unik per guru. |
 | **Anti Brute-force** | `Utilities.sleep(800)` di `handleTeacherLogin`. |
 | **Kunci Jawaban** | Tidak dikirim ke `murid.html`; pencocokan di server. |
+| **Auto-save Murid** | Draft jawaban hanya tersimpan di perangkat murid (`localStorage`), dihapus otomatis setelah submit berhasil, dan divalidasi ulang terhadap `class_id` + `student_id` saat dipulihkan. |
 | **Anti Submit Ganda** | Dicek di server berdasarkan `student_id` + `class_id`. |
 | **Admin Token** | Semua endpoint admin divalidasi dengan token rahasia. |
 | **Escape HTML** | `esc()` di semua output dinamis (anti-XSS). |
@@ -152,10 +154,20 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
   - Backend: handler baru `handleEditTeacherProfile` (Code.gs) dengan validasi password saat ini saat mengganti password, API `updateTeacherProfile` di `api.js`.
 - [x] **Hapus Kelas dengan Syarat Tutup**: Kelas hanya dapat dihapus (soft delete) jika statusnya `closed` (tutup). Jika belum ditutup, penghapusan ditolak dengan pesan *"Kelas harus ditutup terlebih dahulu sebelum dapat dihapus."*
 
-Versi 1.7 — Auto-save & Review Jawaban (Fokus Murid)
-Ini adalah fitur UX yang paling mendesak agar murid tidak panik jika koneksi terputus atau tidak sengaja me-refresh.
-□ Auto-save: Simpan jawaban sementara di localStorage murid.
-□ Review Jawaban: Tampilkan mana opsi yang dipilih murid (benar/salah) di halaman pembahasan.
+### ✅ Prioritas 3: Auto-save & Review Jawaban (Versi 1.7 — SELESAI)
+Fitur UX agar murid tidak kehilangan jawaban saat refresh atau koneksi terputus.
+
+- [x] **Auto-save Jawaban**: draft disimpan di `localStorage` dengan kunci `siaptka_autosave_[class_id]_[student_id]`.
+  - Disimpan langsung saat murid memilih opsi PG; **debounce 500 ms** saat mengetik isian; juga disimpan saat `pagehide` / `visibilitychange`.
+  - Isi draft: `answers`, `remaining_sec`, `current_index`, `updated_at` (skema `v: 1`).
+  - Dipulihkan di `startQuiz()` lewat `restoreDraft()`: jawaban kembali ke `state.answers`, timer **melanjutkan sisa waktu** (tidak reset), murid kembali ke soal terakhir, dan muncul toast "N jawaban dipulihkan".
+  - Dihapus (`clearDraft()`) setelah submit berhasil atau saat server menyatakan `already_done`. Jika submit **gagal** (jaringan/kelas ditutup), draft **tetap** disimpan.
+  - `pruneOldDrafts()` membersihkan draft berumur lebih dari 7 hari saat halaman dimuat.
+- [x] **Ingat Form Join**: kode/nama/absen/PIN terakhir disimpan (`siaptka_murid_lastjoin`) sehingga setelah refresh murid cukup menekan "Mulai Latihan". Ini penting karena `student_id` diturunkan dari **nama** — nama berbeda berarti murid baru dan draft lama tidak ditemukan.
+- [x] **Review Jawaban (semua opsi)**: `handleSubmitResult` (Code.gs) kini mengirim `pilihan`, `tipe`, dan `dijawab` per soal, dengan urutan **sama** seperti saat murid mengerjakan (termasuk pengacakan `acak=1`, memakai `shuffleWithSeed`). `renderPembahasan()` (murid.html) menampilkan daftar opsi A–D: **hijau** = kunci jawaban, **merah** = pilihan murid yang salah, plus tag "Kunci" / "Jawaban Anda" dan catatan bila soal tidak dijawab. Soal tipe isian tetap memakai tampilan baris "Jawaban Anda" vs "Kunci Jawaban".
+- [x] **Service Worker**: `CACHE_VERSION` dinaikkan ke `siaptka-v7` agar murid menerima `murid.html` versi baru.
+
+**Batasan yang diketahui**: draft bersifat per-browser/per-perangkat (hilang jika data browser dibersihkan atau mode incognito), tidak dikirim ke server, dan hanya dapat dipulihkan bila murid join dengan **nama yang sama**.
 
 Versi 1.8 — Mode Gelap (Dark Mode)
 Fitur estetika yang berdampak besar pada kenyamanan pengguna.
@@ -179,13 +191,13 @@ Penyempurnaan teknis sebelum rilis besar.
 
 ## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
 
-Untuk melanjutkan ke Versi 2.0, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend lengkap versi 1.6 + fitur Admin baru v2.0).
-2. **`api.js`** (Lapisan API lengkap versi 1.6 + fungsi Admin baru v2.0).
-3. **`guru.html`** (Frontend guru dengan Mode Gelap v2.0).
-4. **`murid.html`** (Frontend murid dengan Auto-save, Review Jawaban, Mode Gelap v2.0).
-5. **`admin.html`** (Panel admin dengan Blokir Guru, Grafik Pendapatan, Force Logout v2.0).
-6. **`404.html`** (Halaman error custom v2.0 — file baru).
+Untuk melanjutkan ke Versi 1.8 (Mode Gelap), lampirkan file berikut ke chat baru:
+1. **`Code.gs`** (Backend lengkap versi 1.7 — pembahasan mengirim `pilihan`/`tipe`/`dijawab`).
+2. **`api.js`** (Lapisan API lengkap versi 1.7).
+3. **`guru.html`** (Frontend guru — target utama penambahan dark mode).
+4. **`murid.html`** (Frontend murid dengan Auto-save + Review Jawaban v1.7).
+5. **`admin.html`** (Panel admin versi 1.6).
+6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v7`).
 7. **File ini (`Catatan_Konfigurasi.md`)**.
 
 *(File lain tidak perlu dilampirkan kecuali ada error spesifik di file tersebut).*

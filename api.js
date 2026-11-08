@@ -261,8 +261,13 @@
      * Submit jawaban murid.
      * @param {object} payload { class_id, student_id, jawaban (JSON string), durasi_detik }
      * @returns {Promise<{ok:boolean, skor?:number, pembahasan?:Array, message?:string}>}
-     *   pembahasan hanya ada jika kelas.tampil_pembahasan = 1:
-     *   [{ soal_id, pertanyaan, jawaban_user, kunci, benar, skor }]
+     *   pembahasan hanya ada jika kelas.tampil_pembahasan = 1.
+     *   Urutannya sama persis dengan urutan soal yang dikerjakan murid:
+     *   [{
+     *     soal_id, tipe ('pg'|'isian'), pertanyaan,
+     *     pilihan: string[],   // semua opsi (mis. "A. 170") — kosong untuk tipe isian
+     *     jawaban_user, kunci, benar, dijawab, skor
+     *   }]
      */
     submitResult: function (payload) {
       return _request('submitResult', payload);

@@ -16,9 +16,10 @@
  *  v4 — tambah laporan.js (Fase 2)
  *  v5 — tambah admin.html (Fase 3)
  *  v6 — tambah head.js (Fase 4: favicon terpusat)
+ *  v7 — murid: auto-save jawaban (localStorage) + review opsi di pembahasan
  */
 
-const CACHE_VERSION = 'siaptka-v6';
+const CACHE_VERSION = 'siaptka-v7';
 const APP_SHELL = [
   './',
   './',

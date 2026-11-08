@@ -241,7 +241,33 @@
     .pembahasan-row .val { font-weight: 700; }
     .pembahasan-row .val.benar { color: var(--success); }
     .pembahasan-row .val.salah { color: var(--danger); }
-    
+
+    /* ===== PEMBAHASAN: DAFTAR SEMUA OPSI ===== */
+    .pembahasan-opsi-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .pembahasan-opsi {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px;
+      background: white; font-size: 13px; line-height: 1.5;
+    }
+    .pembahasan-opsi .letter {
+      flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+      background: #f1f5f9; color: var(--muted);
+      display: grid; place-items: center; font-weight: 700; font-size: 12px;
+    }
+    .pembahasan-opsi .opsi-text { flex: 1; }
+    .pembahasan-opsi.benar { border-color: var(--success); background: #f0fdf4; }
+    .pembahasan-opsi.benar .letter { background: var(--success); color: white; }
+    .pembahasan-opsi.salah { border-color: var(--danger); background: #fef2f2; }
+    .pembahasan-opsi.salah .letter { background: var(--danger); color: white; }
+    .opsi-tag {
+      flex-shrink: 0; font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .04em; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .tag-kunci { background: #dcfce7; color: #166534; }
+    .tag-anda  { background: #fee2e2; color: #991b1b; }
+    .pembahasan-opsi.benar .tag-anda { background: #bbf7d0; color: #166534; }
+    .pembahasan-note { font-size: 12px; color: var(--muted); margin-top: 8px; font-style: italic; }
+
     @media (max-width: 600px) {
       .wrap { padding: 12px; }
       .card, .soal-card { padding: 20px; }
@@ -362,6 +388,159 @@ var state = {
 };
 
 // ==========================================
+// AUTO-SAVE (localStorage)
+// Kunci: siaptka_autosave_[class_id]_[student_id]
+// Tujuan: jawaban tidak hilang saat refresh / koneksi terputus.
+// Draft dihapus setelah submit berhasil.
+// ==========================================
+var AUTOSAVE_PREFIX   = 'siaptka_autosave_';
+var AUTOSAVE_TTL_MS   = 7 * 24 * 60 * 60 * 1000; // 7 hari
+var AUTOSAVE_DEBOUNCE = 500;                     // ms (khusus input isian)
+var draftTimer = null;
+
+function autosaveKey(classId, studentId) {
+  if (!classId || !studentId) return null;
+  return AUTOSAVE_PREFIX + classId + '_' + studentId;
+}
+
+/** Simpan state.answers + sisa waktu ke localStorage. */
+function saveDraft() {
+  var key = autosaveKey(state.cls && state.cls.id, state.student && state.student.id);
+  if (!key || state.submitted) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      v: 1,
+      class_id: state.cls.id,
+      student_id: state.student.id,
+      answers: state.answers,
+      remaining_sec: state.remainingSec,
+      current_index: state.currentIndex,
+      updated_at: new Date().toISOString()
+    }));
+  } catch (e) { /* private mode / kuota penuh — abaikan */ }
+}
+
+/** Debounce: hindari menulis localStorage pada setiap ketukan tombol. */
+function scheduleDraftSave() {
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, AUTOSAVE_DEBOUNCE);
+}
+
+/** Baca draft + validasi bentuk & kepemilikan. @returns {object|null} */
+function loadDraft() {
+  var key = autosaveKey(state.cls && state.cls.id, state.student && state.student.id);
+  if (!key) return null;
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    var d = JSON.parse(raw);
+    if (!d || d.v !== 1) return null;
+    if (String(d.class_id) !== String(state.cls.id)) return null;
+    if (String(d.student_id) !== String(state.student.id)) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+/** Hapus draft milik murid+kelas ini (dipanggil setelah submit berhasil). */
+function clearDraft() {
+  var key = autosaveKey(state.cls && state.cls.id, state.student && state.student.id);
+  if (!key) return;
+  try { localStorage.removeItem(key); } catch (e) {}
+}
+
+/**
+ * Pulihkan draft ke state.answers, timer, dan posisi soal terakhir.
+ * @returns {number} jumlah jawaban yang dipulihkan
+ */
+function restoreDraft() {
+  var d = loadDraft();
+  if (!d) return 0;
+
+  var validIds = {};
+  state.questions.forEach(function (q) { validIds[q.id] = true; });
+
+  var restored = 0;
+  if (d.answers && typeof d.answers === 'object') {
+    Object.keys(d.answers).forEach(function (soalId) {
+      if (!validIds[soalId]) return;              // soal sudah tidak ada di paket
+      var v = d.answers[soalId];
+      if (v == null || String(v).trim() === '') return;
+      state.answers[soalId] = String(v);
+      restored++;
+    });
+  }
+
+  // Timer: lanjutkan dari sisa waktu terakhir (tidak reset ke durasi penuh)
+  var totalSec = (state.cls.durasi_menit || 60) * 60;
+  var sisa = parseInt(d.remaining_sec, 10);
+  if (!isNaN(sisa)) {
+    sisa = Math.max(0, Math.min(sisa, totalSec));
+    state.remainingSec = sisa;
+    // startTime digeser agar durasi_detik yang dilaporkan tetap akurat
+    state.startTime = Date.now() - (totalSec - sisa) * 1000;
+  }
+
+  // Kembali ke soal terakhir yang dibuka
+  var ci = parseInt(d.current_index, 10);
+  if (!isNaN(ci) && ci >= 0 && ci < state.questions.length) state.currentIndex = ci;
+
+  return restored;
+}
+
+/** Bersihkan draft kedaluwarsa (> 7 hari) agar localStorage tidak menumpuk. */
+function pruneOldDrafts() {
+  try {
+    var now = Date.now();
+    var stale = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (!k || k.indexOf(AUTOSAVE_PREFIX) !== 0) continue;
+      var d = null;
+      try { d = JSON.parse(localStorage.getItem(k)); } catch (e) { d = null; }
+      var t = (d && d.updated_at) ? Date.parse(d.updated_at) : NaN;
+      if (isNaN(t) || (now - t) > AUTOSAVE_TTL_MS) stale.push(k);
+    }
+    stale.forEach(function (k) {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
+  } catch (e) { /* storage tidak tersedia — abaikan */ }
+}
+
+// ==========================================
+// INGAT FORM JOIN
+// Supaya setelah refresh murid cukup menekan "Mulai Latihan".
+// Penting: student_id diturunkan dari NAMA, jadi nama harus sama
+// agar draft jawaban (localStorage) tetap ditemukan.
+// ==========================================
+var JOIN_CACHE = 'siaptka_murid_lastjoin';
+
+function saveJoinForm(kode, nama, absen, pin) {
+  try {
+    localStorage.setItem(JOIN_CACHE, JSON.stringify({
+      kode: kode, nama: nama, absen: absen, pin: pin
+    }));
+  } catch (e) {}
+}
+
+function restoreJoinForm() {
+  try {
+    var raw = localStorage.getItem(JOIN_CACHE);
+    if (!raw) return;
+    var d = JSON.parse(raw);
+    if (!d) return;
+    if (d.kode)  document.getElementById('join-kode').value  = d.kode;
+    if (d.nama)  document.getElementById('join-nama').value  = d.nama;
+    if (d.absen) document.getElementById('join-absen').value = d.absen;
+    if (d.pin)   document.getElementById('join-pin').value   = d.pin;
+    if (d.kode && d.nama) {
+      var msg = document.getElementById('join-msg');
+      msg.textContent = 'Data terakhir dipulihkan. Tekan "Mulai Latihan" untuk melanjutkan.';
+      msg.style.color = 'var(--muted)';
+    }
+  } catch (e) {}
+}
+
+// ==========================================
 // JOIN
 // ==========================================
 function doJoin() {
@@ -386,12 +565,13 @@ function doJoin() {
     return;
   }
 
-  msg.textContent = ''; btn.disabled = true; btn.textContent = 'Memeriksa...';
+  msg.textContent = ''; msg.style.color = ''; btn.disabled = true; btn.textContent = 'Memeriksa...';
 
   API.joinClass(kode, nama, absen, pin).then(function (res) {
     if (!res.ok) { msg.textContent = res.message || 'Gagal masuk.'; return; }
     state.student = res.student;
     state.cls = res.class;
+    saveJoinForm(kode, nama, absen, pin);   // ingat isian form untuk join berikutnya
     loadQuestions();
   }).catch(function (err) {
     msg.textContent = API.friendlyError(err);
@@ -407,6 +587,7 @@ function loadQuestions() {
   API.getQuestions(state.cls.id, state.student.id).then(function (res) {
     if (!res.ok) {
       if (res.already_done) {
+        clearDraft();                        // AUTO-SAVE: tidak ada latihan yang bisa dilanjutkan
         msg.textContent = 'Anda sudah mengerjakan latihan ini. Hubungi guru jika ada masalah.';
       } else {
         msg.textContent = res.message || 'Gagal memuat soal.';
@@ -434,6 +615,9 @@ function startQuiz() {
   state.currentIndex = 0;
   state.answers = {};
 
+  // AUTO-SAVE: pulihkan draft (harus setelah answers direset & sebelum render/timer)
+  var restored = restoreDraft();
+
   document.getElementById('join-screen').classList.add('hidden');
   document.getElementById('quiz-screen').classList.remove('hidden');
 
@@ -445,6 +629,10 @@ function startQuiz() {
   renderSoal();
   startTimer();
   window.scrollTo(0, 0);
+
+  if (restored > 0) {
+    toast('Melanjutkan latihan: ' + restored + ' jawaban dipulihkan.', 'success');
+  }
 }
 
 function startTimer() {
@@ -509,6 +697,7 @@ function renderSoal() {
       pilihanEls.forEach(function (x) { x.classList.remove('selected'); });
       el.classList.add('selected');
       state.answers[q.id] = letter;
+      saveDraft();                 // AUTO-SAVE: pilihan = klik diskrit, simpan langsung
       updateNav();
       updateProgress();
     });
@@ -519,11 +708,13 @@ function renderSoal() {
   if (isian) {
     isian.addEventListener('input', function () {
       state.answers[q.id] = isian.value;
+      scheduleDraftSave();         // AUTO-SAVE: debounce agar tidak menulis tiap ketukan
       updateNav();
       updateProgress();
     });
   }
 
+  updateNav();          // tandai nomor yang sudah dijawab (termasuk hasil auto-save)
   updateNavActive();
   updateProgress();
   updatePrevNextButtons();
@@ -634,9 +825,11 @@ function doSubmit() {
     durasi_detik: durasi
     }).then(function (res) {
     if (res.ok) {
+      clearDraft();                                   // AUTO-SAVE: draft tak diperlukan lagi
       showResult(res.skor, null, res.pembahasan);
     } else {
       if (String(res.message || '').toLowerCase().indexOf('sudah') >= 0) {
+        clearDraft();                                 // AUTO-SAVE: sudah submit di server
         showResult(0, res.message, null);
       } else {
         toast(res.message || 'Gagal mengirim.', 'error');
@@ -686,18 +879,50 @@ function renderPembahasan(list) {
   var html = '<div class="pembahasan-title">📖 Pembahasan Jawaban</div>';
 
   list.forEach(function (item, i) {
-    var cls = item.benar ? 'benar' : 'salah';
-    var statusIcon = item.benar ? '✅' : '❌';
-    html += '<div class="pembahasan-item ' + cls + '">';
-    html += '  <div class="pembahasan-q">' + statusIcon + ' ' + (i + 1) + '. ' + esc(item.pertanyaan) + '</div>';
-    html += '  <div class="pembahasan-row">';
-    html += '    <span class="label">Jawaban Anda</span>';
-    html += '    <span class="val ' + (item.benar ? 'benar' : 'salah') + '">' + esc(item.jawaban_user || '—') + '</span>';
-    html += '  </div>';
-    html += '  <div class="pembahasan-row">';
-    html += '    <span class="label">Kunci Jawaban</span>';
-    html += '    <span class="val benar">' + esc(item.kunci) + '</span>';
-    html += '  </div>';
+    var benar = !!item.benar;
+    var kunci = String(item.kunci == null ? '' : item.kunci).trim();
+    var user  = String(item.jawaban_user == null ? '' : item.jawaban_user).trim();
+    var opsi  = (item.pilihan && item.pilihan.length) ? item.pilihan : [];
+
+    html += '<div class="pembahasan-item ' + (benar ? 'benar' : 'salah') + '">';
+    html += '  <div class="pembahasan-q">' + (benar ? '✅' : '❌') + ' ' + (i + 1) + '. ' + esc(item.pertanyaan) + '</div>';
+
+    if (opsi.length) {
+      // ---- PILIHAN GANDA: tampilkan semua opsi (A, B, C, D) ----
+      // hijau = kunci jawaban, merah = pilihan murid yang salah, netral = opsi lain
+      html += '  <div class="pembahasan-opsi-list">';
+      opsi.forEach(function (p) {
+        var letter = String(p).trim().charAt(0).toUpperCase();
+        var isKunci = letter !== '' && letter === kunci.toUpperCase();
+        var isUser  = letter !== '' && letter === user.toUpperCase();
+        var cls = isKunci ? 'benar' : (isUser ? 'salah' : '');
+
+        html += '<div class="pembahasan-opsi ' + cls + '">';
+        html += '  <span class="letter">' + esc(letter) + '</span>';
+        html += '  <span class="opsi-text">' + esc(p) + '</span>';
+        if (isKunci) {
+          html += '<span class="opsi-tag tag-kunci">' + (isUser ? 'Jawaban Anda' : 'Kunci') + '</span>';
+        } else if (isUser) {
+          html += '<span class="opsi-tag tag-anda">Jawaban Anda</span>';
+        }
+        html += '</div>';
+      });
+      html += '  </div>';
+      if (!user) {
+        html += '  <div class="pembahasan-note">Anda tidak menjawab soal ini.</div>';
+      }
+    } else {
+      // ---- TIPE ISIAN (atau respons backend lama tanpa array pilihan) ----
+      html += '  <div class="pembahasan-row">';
+      html += '    <span class="label">Jawaban Anda</span>';
+      html += '    <span class="val ' + (benar ? 'benar' : 'salah') + '">' + esc(user || '—') + '</span>';
+      html += '  </div>';
+      html += '  <div class="pembahasan-row">';
+      html += '    <span class="label">Kunci Jawaban</span>';
+      html += '    <span class="val benar">' + esc(kunci) + '</span>';
+      html += '  </div>';
+    }
+
     html += '</div>';
   });
 
@@ -740,6 +965,16 @@ window.addEventListener('beforeunload', function (e) {
     e.returnValue = '';
   }
 });
+
+// AUTO-SAVE: pastikan sisa waktu & jawaban terakhir tersimpan saat tab ditutup/disembunyikan
+window.addEventListener('pagehide', saveDraft);
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') saveDraft();
+});
+
+// Saat halaman dimuat: bersihkan draft kedaluwarsa & pulihkan isian form join
+pruneOldDrafts();
+restoreJoinForm();
 </script>
 </body>
 </html>

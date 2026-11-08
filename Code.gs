@@ -862,25 +862,47 @@ function handleSubmitResult(p) {
 
   var totalSkor = 0;
   var detail = [];
+
+  // Hitung skor: hanya soal yang dikenal paket & nilainya cocok.
   Object.keys(jawaban).forEach(function (soalId) {
     var q = soalById[soalId];
     if (!q) return;
-    var userJawab = String(jawaban[soalId] || '').trim();
+    var userJawab = String(jawaban[soalId] == null ? '' : jawaban[soalId]).trim();
     var kunci = String(q.jawaban || '').trim();
-    var benar = userJawab.toLowerCase() === kunci.toLowerCase();
-    if (benar) totalSkor += parseInt(q.skor, 10) || 0;
-
-    if (String(cls.tampil_pembahasan) === '1') {
-      detail.push({
-        soal_id: soalId,
-        pertanyaan: q.pertanyaan,
-        jawaban_user: userJawab,
-        kunci: kunci,
-        benar: benar,
-        skor: parseInt(q.skor, 10) || 0
-      });
+    if (userJawab !== '' && userJawab.toLowerCase() === kunci.toLowerCase()) {
+      totalSkor += parseInt(q.skor, 10) || 0;
     }
   });
+
+  // ---- Pembahasan (opsional, hanya jika kelas mengaktifkan tampil_pembahasan) ----
+  // Urutan sengaja disamakan dengan handleGetQuestions (termasuk pengacakan)
+  // agar nomor soal di pembahasan identik dengan nomor yang dilihat murid.
+  if (String(cls.tampil_pembahasan) === '1') {
+    var urutanSoal = paket.soal.slice();
+    if (String(cls.acak) === '1') {
+      urutanSoal = shuffleWithSeed(urutanSoal, studentId);
+    }
+
+    urutanSoal.forEach(function (q) {
+      var soalId = String(q.id);
+      var raw = jawaban[soalId];
+      var userJawab = String(raw == null ? '' : raw).trim();
+      var kunci = String(q.jawaban || '').trim();
+      var dijawab = userJawab !== '';
+
+      detail.push({
+        soal_id: soalId,
+        tipe: q.tipe,                       // 'pg' | 'isian'
+        pertanyaan: q.pertanyaan,
+        pilihan: q.pilihan || [],           // BARU: semua opsi (A, B, C, D) dari XML
+        jawaban_user: userJawab,
+        kunci: kunci,
+        benar: dijawab && userJawab.toLowerCase() === kunci.toLowerCase(),
+        dijawab: dijawab,                   // BARU: bedakan "tidak dijawab" vs "salah"
+        skor: parseInt(q.skor, 10) || 0
+      });
+    });
+  }
 
   rSheet.appendRow([
     generateUUID(), studentId, classId, totalSkor, jawabanStr, nowIso(), durasi
