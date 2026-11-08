@@ -7,7 +7,7 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 
 > **Status**: Versi 1.6 ✅ (Validasi & Normalisasi Input + Hapus Kelas dengan Syarat Tutup)
 > **Terakhir diperbarui**: Setelah implementasi Versi 1.6.
-> **Tahap Selanjutnya**: Versi 1.7 (UX & Fitur Murid)
+> **Tahap Selanjutnya**: Versi 2.0 (Penyatukan Prioritas 3, 4, 5 — Admin, UX Murid, Utilitas)
 
 ---
 
@@ -152,30 +152,29 @@ Karena Versi 1.5 sudah selesai, fokus beralih ke standar aplikasi SaaS (Software
   - Backend: handler baru `handleEditTeacherProfile` (Code.gs) dengan validasi password saat ini saat mengganti password, API `updateTeacherProfile` di `api.js`.
 - [x] **Hapus Kelas dengan Syarat Tutup**: Kelas hanya dapat dihapus (soft delete) jika statusnya `closed` (tutup). Jika belum ditutup, penghapusan ditolak dengan pesan *"Kelas harus ditutup terlebih dahulu sebelum dapat dihapus."*
 
-### 👑 Prioritas 3: Penyempurnaan Admin (Rencana Versi 1.8)
-- [ ] **Blokir/Nonaktifkan Guru**: Admin bisa menonaktifkan akun guru yang menyalahgunakan.
-- [ ] **Grafik Pendapatan**: Statistik tren aktivasi kode per bulan.
-- [ ] **Force Logout**: Mencabut sesi login guru dari jarak jauh.
-
-### 🎨 Prioritas 4: UX & Fitur Murid (Rencana Versi 1.7)
-- [ ] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
-- [ ] **Auto-save Jawaban**: Simpan jawaban di `localStorage` agar tidak hilang saat refresh.
-- [ ] **Review Jawaban**: Tampilkan opsi jawaban murid yang salah (bukan hanya kunci).
-- [ ] **Mode Gelap**: Toggle di topbar guru/murid.
-
-### 🐛 Prioritas 5: Bug Fix & Utilitas
-- [ ] **Backup Spreadsheet Otomatis**: Script GAS untuk backup mingguan.
-- [ ] **Halaman 404 Custom**: Tampilan error yang ramah pengguna.
+### 🚀 Versi 2.0 — Penyatuan Semua Prioritas Tersisa (Rencana)
+- [ ] **Blokir/Nonaktifkan Guru** (dari Prioritas 3): Admin bisa menonaktifkan akun guru yang menyalahgunakan.
+- [ ] **Grafik Pendapatan** (dari Prioritas 3): Statistik tren aktivasi kode per bulan di panel admin.
+- [ ] **Force Logout** (dari Prioritas 3): Mencabut sesi login guru dari jarak jauh melalui panel admin.
+- [ ] **Auto-save Jawaban** (dari Prioritas 4): Simpan jawaban murid di `localStorage` agar tidak hilang saat refresh.
+- [ ] **Review Jawaban** (dari Prioritas 4): Tampilkan opsi jawaban murid yang salah, bukan hanya kunci jawaban.
+- [ ] **Mode Gelap** (dari Prioritas 4): Toggle tema gelap di topbar guru & murid.
+- [ ] **Backup Spreadsheet Otomatis** (dari Prioritas 5): Script GAS untuk backup mingguan spreadsheet.
+- [ ] **Halaman 404 Custom** (dari Prioritas 5): Tampilan error yang ramah pengguna saat halaman tidak ditemukan.
+- [x] **Edit Profil Guru** (dari Prioritas 4): Sudah selesai di Versi 1.6, dilewati.
 
 ---
 
 ## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
 
-Untuk melanjutkan ke Versi 1.7, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend lengkap versi 1.6).
-2. **`api.js`** (Lapisan API lengkap versi 1.6).
-3. **`guru.html`** (Frontend guru dengan fitur Manajemen Kelas & URL rewriting).
-4. **File ini (`Catatan_Konfigurasi.md`)**.
+Untuk melanjutkan ke Versi 2.0, lampirkan file berikut ke chat baru:
+1. **`Code.gs`** (Backend lengkap versi 1.6 + fitur Admin baru v2.0).
+2. **`api.js`** (Lapisan API lengkap versi 1.6 + fungsi Admin baru v2.0).
+3. **`guru.html`** (Frontend guru dengan Mode Gelap v2.0).
+4. **`murid.html`** (Frontend murid dengan Auto-save, Review Jawaban, Mode Gelap v2.0).
+5. **`admin.html`** (Panel admin dengan Blokir Guru, Grafik Pendapatan, Force Logout v2.0).
+6. **`404.html`** (Halaman error custom v2.0 — file baru).
+7. **File ini (`Catatan_Konfigurasi.md`)**.
 
 *(File lain tidak perlu dilampirkan kecuali ada error spesifik di file tersebut).*
 
