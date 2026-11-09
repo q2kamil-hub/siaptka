@@ -122,7 +122,9 @@
     .soal-card {
       background: white; border-radius: 16px; border: 1px solid var(--border);
       padding: 28px; margin-bottom: 16px;
+      scroll-margin-top: 100px;
     }
+    .soal-card:focus { outline: 3px solid #93c5fd; outline-offset: 3px; }
     .soal-num {
       display: inline-block; padding: 4px 12px; border-radius: 999px;
       background: #eff6ff; color: var(--primary);
@@ -223,6 +225,10 @@
       display: flex; gap: 10px; margin-top: 16px;
     }
     .quiz-actions .btn { flex: 1; }
+    .quiz-actions .btn:disabled {
+      opacity: .45; cursor: not-allowed; background: #f1f5f9;
+      color: #94a3b8; border-color: #e2e8f0;
+    }
 
     /* ===== RESULT ===== */
     .result-hero { text-align: center; padding: 20px 0; }
@@ -370,16 +376,16 @@
   </div>
 
   <div class="wrap" style="padding-top:0">
-    <div id="soal-container"></div>
-
     <div class="nav-grid" id="nav-grid"></div>
+
+    <div id="soal-container"></div>
 
     <div class="quiz-actions">
       <button class="btn btn-outline" id="btn-prev" onclick="prevSoal()">← Sebelumnya</button>
       <button class="btn btn-outline" id="btn-next" onclick="nextSoal()">Selanjutnya →</button>
     </div>
 
-    <button class="btn btn-primary btn-block" onclick="confirmSubmit()" style="margin-top:12px">
+    <button class="btn btn-primary btn-block" id="btn-final-submit" onclick="confirmSubmit()" style="margin-top:12px" hidden>
       Selesai & Kirim Jawaban
     </button>
   </div>
@@ -711,6 +717,13 @@ function updateTimerDisplay() {
 }
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 
+function getOptionText(option, letter) {
+  var text = String(option == null ? '' : option);
+  if (text.charAt(0).toUpperCase() !== String(letter).toUpperCase()) return text;
+  if (text.charAt(1) !== '.' && text.charAt(1) !== ')') return text;
+  return text.slice(2).trim();
+}
+
 function renderSoal() {
   var q = state.questions[state.currentIndex];
   var idx = state.currentIndex;
@@ -718,7 +731,7 @@ function renderSoal() {
   var userAns = state.answers[q.id] || '';
 
   var html = '';
-  html += '<div class="soal-card">';
+  html += '<div class="soal-card" tabindex="-1">';
   html += '  <span class="soal-num">Soal ' + (idx + 1) + ' dari ' + total + '</span>';
   html += '  <div class="soal-text">' + rich(q.pertanyaan) + '</div>';
 
@@ -727,22 +740,24 @@ function renderSoal() {
 
   if (tipe === 'pg' && q.pilihan && q.pilihan.length) {
     q.pilihan.forEach(function (p) {
-      var letter = String(p).trim().charAt(0);
+      var option = String(p).trim();
+      var letter = option.charAt(0);
       var selected = (userAns === letter) ? ' selected' : '';
       html += '<label class="pilihan' + selected + '" data-letter="' + esc(letter) + '">';
       html += '  <span class="letter">' + esc(letter) + '</span>';
-      html += '  <span>' + rich(p) + '</span>';
+      html += '  <span>' + rich(getOptionText(option, letter)) + '</span>';
       html += '</label>';
     });
   } else if (tipe === 'pg_kompleks' && q.pilihan && q.pilihan.length) {
     var userArr = Array.isArray(userAns) ? userAns : (String(userAns).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; }));
     q.pilihan.forEach(function (p) {
-      var letter = String(p).trim().charAt(0);
+      var option = String(p).trim();
+      var letter = option.charAt(0);
       var checked = userArr.indexOf(letter) >= 0 ? 'checked' : '';
       html += '<label class="cb-pilihan ' + checked + '" data-letter="' + esc(letter) + '">';
       html += '  <input type="checkbox" value="' + esc(letter) + '" ' + checked + '>';
       html += '  <span class="cb-letter">' + esc(letter) + '</span>';
-      html += '  <span>' + rich(p) + '</span>';
+      html += '  <span>' + rich(getOptionText(option, letter)) + '</span>';
       html += '</label>';
     });
   } else if (tipe === 'benar_salah') {
@@ -921,25 +936,29 @@ function updateProgress() {
 function updatePrevNextButtons() {
   document.getElementById('btn-prev').disabled = state.currentIndex === 0;
   document.getElementById('btn-next').disabled = state.currentIndex === state.questions.length - 1;
+  document.getElementById('btn-final-submit').hidden = state.currentIndex !== state.questions.length - 1;
+}
+
+function navigateToQuestion(index) {
+  if (index < 0 || index >= state.questions.length || index === state.currentIndex) return;
+  state.currentIndex = index;
+  saveDraft();
+  renderSoal();
+  var questionCard = document.querySelector('#soal-container .soal-card');
+  if (questionCard) {
+    questionCard.focus({ preventScroll: true });
+    questionCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function jumpTo(i) {
-  state.currentIndex = i;
-  renderSoal();
+  navigateToQuestion(i);
 }
 function nextSoal() {
-  if (state.currentIndex < state.questions.length - 1) {
-    state.currentIndex++;
-    renderSoal();
-    window.scrollTo(0, 0);
-  }
+  navigateToQuestion(state.currentIndex + 1);
 }
 function prevSoal() {
-  if (state.currentIndex > 0) {
-    state.currentIndex--;
-    renderSoal();
-    window.scrollTo(0, 0);
-  }
+  navigateToQuestion(state.currentIndex - 1);
 }
 
 // ==========================================
@@ -1081,13 +1100,14 @@ function renderPembahasan(list) {
     } else if (opsi.length) {
       html += '  <div class="pembahasan-opsi-list">';
       opsi.forEach(function (p) {
-        var letter = String(p).trim().charAt(0).toUpperCase();
+        var option = String(p).trim();
+        var letter = option.charAt(0).toUpperCase();
         var isKunci = letter !== '' && letter === kunci.toUpperCase();
         var isUser  = letter !== '' && letter === String(user).trim().toUpperCase();
         var cls = isKunci ? 'benar' : (isUser ? 'salah' : '');
         html += '<div class="pembahasan-opsi ' + cls + '">';
         html += '  <span class="letter">' + esc(letter) + '</span>';
-        html += '  <span class="opsi-text">' + rich(p) + '</span>';
+        html += '  <span class="opsi-text">' + rich(getOptionText(option, letter)) + '</span>';
         if (isKunci) {
           html += '<span class="opsi-tag tag-kunci">' + (isUser ? 'Jawaban Anda' : 'Kunci') + '</span>';
         } else if (isUser) {
@@ -1126,7 +1146,8 @@ function renderPgKompleks(kunci, user, opsi) {
   var userArr = Array.isArray(user) ? user : (String(user).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; }));
   var h = '  <div class="pembahasan-opsi-list">';
   opsi.forEach(function (p) {
-    var letter = String(p).trim().charAt(0).toUpperCase();
+    var option = String(p).trim();
+    var letter = option.charAt(0).toUpperCase();
     var isKunci = kunciList.indexOf(letter) >= 0;
     var isUser  = userArr.indexOf(letter) >= 0;
     var cls = '';
@@ -1135,7 +1156,7 @@ function renderPgKompleks(kunci, user, opsi) {
     else if (isUser && !isKunci) cls = 'salah';
     h += '<div class="pembahasan-opsi ' + cls + '">';
     h += '  <span class="letter">' + esc(letter) + '</span>';
-    h += '  <span class="opsi-text">' + rich(p) + '</span>';
+    h += '  <span class="opsi-text">' + rich(getOptionText(option, letter)) + '</span>';
     var tags = [];
     if (isKunci) tags.push('Kunci');
     if (isUser) tags.push('Jawaban Anda');

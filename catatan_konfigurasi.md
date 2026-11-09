@@ -16,7 +16,7 @@ SiapTKA adalah aplikasi latihan Tes Kemampuan Akademik (TKA) berbasis web dan PW
 | Backend | Google Apps Script (GAS), API JSONP |
 | Database | Google Sheets: `Teachers`, `Activations`, `Classes`, `Students`, `Results`, `Packages` |
 | Berkas soal | XML UTF-8 di Google Drive, dibaca melalui `DriveApp` |
-| Cache offline | Service Worker, saat ini `siaptka-v14` |
+| Cache offline | Service Worker, saat ini `siaptka-v15` |
 | Sesi guru/admin | `localStorage` pada perangkat dan browser masing-masing |
 
 ### Peran
@@ -80,6 +80,7 @@ SiapTKA adalah aplikasi latihan Tes Kemampuan Akademik (TKA) berbasis web dan PW
 - Halaman `404.html` kustom untuk hosting statis dan Apache.
 - Catatan konfigurasi diperbarui sebagai dokumentasi rilis stabil.
 - Pemberitahuan pembaruan PWA tersedia di halaman aplikasi; pengguna dapat memilih **Update sekarang** atau **Nanti**.
+- Navigasi latihan murid menempatkan nomor soal di atas kartu soal, menonaktifkan tombol navigasi di batas soal, dan menampilkan tombol kirim hanya pada soal terakhir.
 
 ---
 
@@ -161,7 +162,7 @@ Aturan penulisan:
 - **Apache/XAMPP**: `.htaccess` proyek sudah mengatur `ErrorDocument 404 /siaptka-1/404.html`. Pastikan `mod_rewrite` aktif dan `.htaccess` diizinkan.
 - **Netlify**: Netlify otomatis memakai `404.html` di root publish directory untuk halaman yang tidak ditemukan.
 - **GitHub Pages**: GitHub Pages memakai `404.html` di root branch/direktori publish. Pastikan file ikut dipublikasikan.
-- Service Worker menggunakan cache `siaptka-v14` dan memasukkan `404.html` serta `update.js` ke app shell.
+- Service Worker menggunakan cache `siaptka-v15` dan memasukkan `404.html` serta `update.js` ke app shell.
 
 Jika nama folder atau base path deployment berubah dari `/siaptka/` atau `/siaptka-1/`, sesuaikan deteksi root aplikasi di `404.html`.
 
@@ -173,14 +174,14 @@ Jika nama folder atau base path deployment berubah dari `/siaptka/` atau `/siapt
 
 **SiapTKA Versi 2.0 dinyatakan stabil** setelah fitur manajemen admin Versi 1.9 dan halaman 404 Versi 2.0 tersedia pada source proyek. Grafik tren aktivasi telah dikeluarkan dari cakupan berdasarkan keputusan produk dan tidak menjadi pekerjaan tertunda.
 
-Penyempurnaan PWA pada cache `siaptka-v14` menambahkan pemberitahuan pembaruan yang dapat dikonfirmasi pengguna. Setelah memublikasikan versi ini, pengguna yang masih menjalankan app shell lama mungkin perlu membuka ulang aplikasi setelah perangkat sempat online agar halaman baru termuat dan pemeriksaan pembaruan tersedia. Pembaruan berikutnya dapat diterapkan dari tombol **Update sekarang** tanpa clear storage atau instal ulang.
+Penyempurnaan PWA pada cache `siaptka-v14` menambahkan pemberitahuan pembaruan yang dapat dikonfirmasi pengguna. Cache `siaptka-v15` merapikan tampilan opsi dan navigasi soal murid. Setelah memublikasikan versi ini, pengguna yang masih menjalankan app shell lama mungkin perlu membuka ulang aplikasi setelah perangkat sempat online agar halaman baru termuat dan pemeriksaan pembaruan tersedia. Pembaruan berikutnya dapat diterapkan dari tombol **Update sekarang** tanpa clear storage atau instal ulang.
 
 ### Checklist publikasi
 - [ ] Deploy `Code.gs` sebagai versi Web App baru jika backend berubah.
 - [ ] Publikasikan berkas frontend, `404.html`, dan `sw.js`.
 - [ ] Pastikan host menggunakan `404.html` dan route beranda pada base path yang benar.
 - [ ] Uji beranda, login guru, join murid, panel admin, halaman tidak ditemukan, dan force logout.
-- [ ] Pastikan Service Worker aktif dengan cache `siaptka-v14` dan `update.js` tersedia.
+- [ ] Pastikan Service Worker aktif dengan cache `siaptka-v15` dan `update.js` tersedia.
 - [ ] Uji pemberitahuan **Pembaruan aplikasi tersedia**, tombol **Nanti**, dan penerapan melalui **Update sekarang**.
 - [ ] Pastikan tidak ada token admin, password, atau data sensitif di commit atau dokumentasi.
 

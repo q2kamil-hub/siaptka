@@ -24,9 +24,10 @@
  *  v12 — admin: blokir guru + force logout; guru: validasi sesi server
  *  v13 — tambah halaman 404 kustom
  *  v14 — tampilkan prompt pembaruan dan aktivasi setelah konfirmasi pengguna
+ *  v15 — perbaikan tampilan opsi dan navigasi soal murid
  */
 
-const CACHE_VERSION = 'siaptka-v14';
+const CACHE_VERSION = 'siaptka-v15';
 const APP_SHELL = [
   './index.html',
   './404.html',
