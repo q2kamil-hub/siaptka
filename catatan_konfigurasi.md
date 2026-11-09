@@ -1,6 +1,6 @@
 # SiapTKA — Catatan Konfigurasi dan Rilis
 
-> **Status**: Versi 2.0 Stabil ✅
+> **Status**: Versi 2.0 Stabil ✅ — roadmap 2.1–3.0 disiapkan sebagai usulan
 > **Tanggal pembaruan**: 9 November 2026
 > **Ringkasan rilis**: Menyelesaikan manajemen admin Versi 1.9 dan menambahkan halaman 404 kustom.
 
@@ -177,13 +177,28 @@ Jika nama folder atau base path deployment berubah dari `/siaptka/` atau `/siapt
 Penyempurnaan PWA pada cache `siaptka-v14` menambahkan pemberitahuan pembaruan yang dapat dikonfirmasi pengguna. Cache `siaptka-v15` merapikan tampilan opsi dan navigasi soal murid. Setelah memublikasikan versi ini, pengguna yang masih menjalankan app shell lama mungkin perlu membuka ulang aplikasi setelah perangkat sempat online agar halaman baru termuat dan pemeriksaan pembaruan tersedia. Pembaruan berikutnya dapat diterapkan dari tombol **Update sekarang** tanpa clear storage atau instal ulang.
 
 ### Checklist publikasi
-- [ ] Deploy `Code.gs` sebagai versi Web App baru jika backend berubah.
-- [ ] Publikasikan berkas frontend, `404.html`, dan `sw.js`.
-- [ ] Pastikan host menggunakan `404.html` dan route beranda pada base path yang benar.
-- [ ] Uji beranda, login guru, join murid, panel admin, halaman tidak ditemukan, dan force logout.
-- [ ] Pastikan Service Worker aktif dengan cache `siaptka-v15` dan `update.js` tersedia.
-- [ ] Uji pemberitahuan **Pembaruan aplikasi tersedia**, tombol **Nanti**, dan penerapan melalui **Update sekarang**.
-- [ ] Pastikan tidak ada token admin, password, atau data sensitif di commit atau dokumentasi.
+- [x] Deploy `Code.gs` sebagai versi Web App baru jika backend berubah.
+- [x] Publikasikan berkas frontend, `404.html`, dan `sw.js`.
+- [x] Pastikan host menggunakan `404.html` dan route beranda pada base path yang benar.
+- [x] Uji beranda, login guru, join murid, panel admin, halaman tidak ditemukan, dan force logout.
+- [x] Pastikan Service Worker aktif dengan cache `siaptka-v15` dan `update.js` tersedia.
+- [x] Uji pemberitahuan **Pembaruan aplikasi tersedia**, tombol **Nanti**, dan penerapan melalui **Update sekarang**.
+- [x] Pastikan tidak ada token admin, password, atau data sensitif di commit atau dokumentasi.
+
+### Usulan roadmap pengembangan 2.1–3.0
+
+Roadmap berikut merupakan **usulan awal untuk dibahas**, bukan komitmen fitur atau jadwal rilis. Ruang lingkup setiap versi dapat disesuaikan setelah prioritas pengguna dan kesiapan teknis ditinjau.
+
+| Versi | Fokus usulan | Cakupan awal |
+|---|---|---|
+| **2.1** | Penyempurnaan UX dan aksesibilitas | Rapikan alur utama guru/murid/admin; audit tampilan mobile, navigasi keyboard, fokus, dan pesan validasi. |
+| **2.2** | Laporan guru | Tingkatkan penyaringan dan keterbacaan hasil kelas serta kemudahan ekspor laporan; pertahankan batas akses data per guru. |
+| **2.3** | Pengelolaan paket soal | Evaluasi alur tambah/ubah paket dan pemeriksaan format soal sebelum dipakai di kelas; pertahankan kompatibilitas XML yang ada. |
+| **2.4** | Keandalan latihan murid | Perkuat pemulihan draft, penanganan koneksi terputus, dan umpan balik status simpan/kirim tanpa mengorbankan jawaban yang sudah tersimpan. |
+| **2.5** | Operasional dan administrasi | Tinjau kebutuhan jejak tindakan admin, pemeliharaan data, serta panduan backup dan pemulihan yang aman. |
+| **3.0** | Konsolidasi platform | Rencanakan penyederhanaan arsitektur frontend/API, strategi migrasi dan kompatibilitas data, serta cakupan pengujian sebelum perubahan besar. |
+
+Setiap usulan perlu diturunkan menjadi kriteria penerimaan, dampak pada GAS/Google Sheets, kebutuhan migrasi, dan pengujian sebelum dimasukkan ke rilis. Grafik tren aktivasi kode tetap di luar cakupan kecuali diprioritaskan kembali secara eksplisit.
 
 ### Riwayat versi utama
 - **1.5** — Pengelolaan kelas dan profil guru.
@@ -193,3 +208,5 @@ Penyempurnaan PWA pada cache `siaptka-v14` menambahkan pemberitahuan pembaruan y
 - **1.8.5** — Penyempurnaan dashboard guru dan preview paket.
 - **1.9** — Blokir/nonaktifkan guru dan force logout.
 - **2.0** — Halaman 404 kustom dan penandaan rilis stabil.
+- **2.1–2.5** — Usulan penyempurnaan UX, laporan, paket soal, keandalan latihan, dan operasional; belum dijadwalkan.
+- **3.0** — Usulan konsolidasi platform; ruang lingkup dan strategi migrasi belum ditetapkan.
