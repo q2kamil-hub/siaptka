@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="head.js"></script>
+  <script src="./update.js" defer></script>
 
   <style>
     :root {
@@ -281,15 +282,11 @@
       }
     }
 
-    // Service worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch((error) => {
-          setPwaStatus('Pendaftaran komponen offline gagal. Periksa koneksi, lalu muat ulang halaman.');
-          console.error('[PWA] Gagal mendaftarkan service worker:', error);
-        });
-      });
-    } else {
+    // Pendaftaran dan pembaruan service worker dikelola oleh update.js.
+    window.addEventListener('siaptka:service-worker-error', () => {
+      setPwaStatus('Pendaftaran komponen offline gagal. Periksa koneksi, lalu muat ulang halaman.');
+    });
+    if (!('serviceWorker' in navigator)) {
       setPwaStatus('Browser ini tidak mendukung komponen offline SiapTKA. Gunakan browser terbaru dan buka melalui HTTPS.');
     }
   </script>

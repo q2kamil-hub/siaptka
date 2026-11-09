@@ -23,9 +23,10 @@
  *  v11 — index: PWA gate selalu memberi instruksi dan tidak memakai penanda install localStorage
  *  v12 — admin: blokir guru + force logout; guru: validasi sesi server
  *  v13 — tambah halaman 404 kustom
+ *  v14 — tampilkan prompt pembaruan dan aktivasi setelah konfirmasi pengguna
  */
 
-const CACHE_VERSION = 'siaptka-v13';
+const CACHE_VERSION = 'siaptka-v14';
 const APP_SHELL = [
   './index.html',
   './404.html',
@@ -35,6 +36,7 @@ const APP_SHELL = [
   './murid',
   './admin',
   './api.js',
+  './update.js',
   './laporan.js',
   './head.js',
   './manifest.json',
@@ -57,7 +59,6 @@ self.addEventListener('install', (event) => {
         // Jangan gagalkan install jika 1 file hilang (mis. icon belum ada)
         console.warn('[SW] Sebagian aset gagal di-precache:', err);
       }))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -113,7 +114,9 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate' ||
       req.destination === 'document' ||
       /\.(?:html|js|css|png|svg|ico|json|webmanifest)$/i.test(url.pathname)) {
-    event.respondWith(cacheFirstRevalidate(req));
+    const strategy = cacheFirstRevalidate(req);
+    event.respondWith(strategy.response);
+    event.waitUntil(strategy.revalidation);
     return;
   }
 
@@ -128,28 +131,22 @@ self.addEventListener('fetch', (event) => {
  * Cache-first + revalidate background.
  * Cepat (dari cache), tapi tetap update ke versi terbaru saat online.
  */
-async function cacheFirstRevalidate(request) {
-  const cache = await caches.open(CACHE_VERSION);
-  const cached = await cache.match(request);
-
-  const fetchPromise = fetch(request)
-    .then((response) => {
+function cacheFirstRevalidate(request) {
+  const cachePromise = caches.open(CACHE_VERSION);
+  const fetchPromise = fetch(request).catch(() => null);
+  const revalidation = fetchPromise.then((response) => {
       if (response && response.status === 200 && response.type !== 'opaque') {
-        cache.put(request, response.clone());
+        return cachePromise.then((cache) => cache.put(request, response.clone())).then(() => response);
       }
       return response;
-    })
-    .catch(() => null);
+    });
 
-  if (cached) {
-    fetchPromise; // update di background, jangan di-await
-    return cached;
-  }
+  const response = cachePromise
+    .then((cache) => cache.match(request))
+    .then((cached) => cached || fetchPromise)
+    .then((fresh) => fresh || offlineFallback());
 
-  const fresh = await fetchPromise;
-  if (fresh) return fresh;
-
-  return offlineFallback();
+  return { response, revalidation };
 }
 
 /**
