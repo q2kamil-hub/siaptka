@@ -20,6 +20,7 @@ var SPREADSHEET_ID = '1G9qOfRcP0akLDJMPG5e-upT8uH0jcTiNRQrG8fA550I';
 var ADMIN_TOKEN   = 'TKA_Super_Rahasia_2026!';
 // Durasi default masa aktif guru saat aktivasi (hari)
 var GURU_MASA_AKTIF_HARI = 365;
+var TEACHER_PREVIEW_SESSION_TTL_SECONDS = 21600;
 
 // Nama tab
 var SH = {
@@ -169,6 +170,7 @@ function doGet(e) {
       case 'getMyClasses':         result = handleGetMyClasses(p); break;
       case 'getClassDetail':       result = handleGetClassDetail(p); break;
       case 'getClassAnalytics':    result = handleGetClassAnalytics(p); break;
+      case 'getPackagePreview':    result = handleGetPackagePreview(p); break;
       case 'setClassClosed':       result = handleSetClassClosed(p); break;
       case 'editClass':            result = handleEditClass(p); break;
       case 'deleteClass':          result = handleDeleteClass(p); break;
@@ -248,16 +250,46 @@ function handleTeacherLogin(p) {
     return { ok: false, message: 'Password salah.' };
   }
 
+  var guru = {
+    id: data.id,
+    email: data.email,
+    nama: data.nama,
+    sekolah: data.sekolah || '',
+    aktif_sampai: data.aktif_sampai || ''
+  };
+  guru.preview_token = createTeacherPreviewToken(data.id);
+
   return {
     ok: true,
-    guru: {
-      id: data.id,
-      email: data.email,
-      nama: data.nama,
-      sekolah: data.sekolah || '',
-      aktif_sampai: data.aktif_sampai || ''
-    }
+    guru: guru
   };
+}
+
+function createTeacherPreviewToken(teacherId) {
+  var token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put(
+    'teacher-preview:' + token,
+    String(teacherId),
+    TEACHER_PREVIEW_SESSION_TTL_SECONDS
+  );
+  return token;
+}
+
+function isTeacherPreviewSessionValid(teacherId, token) {
+  if (!teacherId || !token) return false;
+
+  var cachedTeacherId = CacheService.getScriptCache().get('teacher-preview:' + token);
+  if (!cachedTeacherId || cachedTeacherId !== teacherId) return false;
+
+  var sheet = getSheet(SH.TEACHERS);
+  var rowIdx = findRowIndex(sheet, 'id', teacherId);
+  if (rowIdx < 0) return false;
+
+  var row = sheet.getRange(rowIdx, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var activeUntil = row[HEADERS.Teachers.indexOf('aktif_sampai')];
+  if (activeUntil && new Date(activeUntil).getTime() < Date.now()) return false;
+
+  return true;
 }
 
 function handleActivateTeacher(p) {
@@ -293,6 +325,7 @@ function handleActivateTeacher(p) {
   var salt = generateSalt();
   var hash = hashPassword(pass, salt);
   var aktifSampai = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 tahun
+  var previewToken = createTeacherPreviewToken(id);
 
   tSheet.appendRow([id, email, hash, salt, nama, sekolah, aktifSampai, nowIso()]);
 
@@ -301,9 +334,18 @@ function handleActivateTeacher(p) {
   actSheet.getRange(actRow, 3).setValue(nowIso());
   actSheet.getRange(actRow, 4).setValue('used');
 
+  var guru = {
+    id: id,
+    email: email,
+    nama: nama,
+    sekolah: sekolah,
+    aktif_sampai: aktifSampai,
+    preview_token: previewToken
+  };
+
   return {
     ok: true,
-    guru: { id: id, email: email, nama: nama, sekolah: sekolah, aktif_sampai: aktifSampai }
+    guru: guru
   };
 }
 
@@ -432,12 +474,15 @@ function handleGetClassDetail(p) {
     return String(a.nama).localeCompare(String(b.nama));
   });
 
+  var paket = getPaketMetaById(cls.paket_id);
+
   return {
     ok: true,
     class: {
       id: cls.id,
       nama_kelas: cls.nama_kelas,
       paket_id: cls.paket_id,
+      nama_paket: paket ? paket.nama_paket : '',
       kode_kelas: cls.kode_kelas,
       pin: cls.pin || '',
       durasi_menit: parseInt(cls.durasi_menit, 10) || 0,
@@ -1250,6 +1295,56 @@ function handleGetPackagesForTeacher(p) {
     });
 
   return { ok: true, packages: aktif };
+}
+
+// ==================== HANDLER: PREVIEW PAKET (HANYA GURU) ====================
+
+/**
+ * Preview isi paket soal beserta kunci jawaban.
+ * Endpoint ini KHUSUS GURU dan tidak boleh digunakan oleh alur murid.
+ * Murid hanya menerima soal tanpa kunci melalui getQuestions.
+ * Kunci jawaban tidak pernah ditulis ke log.
+ */
+function handleGetPackagePreview(p) {
+  var paketId = String(p.paket_id || '').trim();
+  var teacherId = String(p.teacher_id || '').trim();
+  var previewToken = String(p.preview_token || '').trim();
+
+  if (!paketId) return { ok: false, message: 'paket_id wajib.' };
+  if (!isTeacherPreviewSessionValid(teacherId, previewToken)) {
+    return { ok: false, message: 'Sesi guru tidak valid atau kedaluwarsa. Silakan login kembali.' };
+  }
+
+  var paket = getPaketSoal(paketId);
+  if (!paket) return { ok: false, message: 'Paket soal tidak ditemukan.' };
+
+  var pkgMeta = getPaketMetaById(paketId);
+  var jumlahSoal = paket.soal ? paket.soal.length : 0;
+
+  // Kunci jawaban disertakan karena ini adalah preview untuk guru.
+  // Tidak ada endpoint murid yang mengembalikan kunci jawaban.
+  var previewSoal = (paket.soal || []).map(function (q) {
+    return {
+      id: q.id,
+      tipe: q.tipe,
+      pertanyaan: q.pertanyaan,
+      pilihan: q.pilihan || [],
+      pasangan: q.pasangan || [],
+      skor: q.skor,
+      jawaban: q.jawaban || ''
+    };
+  });
+
+  return {
+    ok: true,
+    paket: {
+      id: paketId,
+      nama_paket: pkgMeta ? pkgMeta.nama_paket : '',
+      file_xml: pkgMeta ? pkgMeta.file_xml : '',
+      jumlah_soal: jumlahSoal
+    },
+    soal: previewSoal
+  };
 }
 
 // ==================== HANDLER: ADMIN PAKET ====================

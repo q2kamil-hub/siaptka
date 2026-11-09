@@ -113,6 +113,9 @@
       transition: border-color .15s;
     }
     input:focus, select:focus { border-color: var(--primary-light); }
+    .package-select-row { display: flex; align-items: center; gap: 8px; }
+    .package-select-row select { flex: 1; min-width: 0; }
+    .package-select-row .btn { flex: 0 0 auto; white-space: nowrap; }
     .form-row { display: flex; gap: 10px; }
     .form-row > * { flex: 1; }
     .error-msg {
@@ -156,6 +159,84 @@
     }
     .status-open { background: #dcfce7; color: #166534; }
     .status-closed { background: #fee2e2; color: #991b1b; }
+    .status-deleted { background: #e2e8f0; color: #475569; }
+
+    /* ===== KARTU KELAS (kepala, kaki, toggle) ===== */
+    .class-card-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 10px; margin-bottom: 8px;
+    }
+    .class-card-head h3 { margin: 0; word-break: break-word; }
+    .class-card-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+    }
+    .card-toggle {
+      padding: 6px 12px; border-radius: 999px; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      border: 1.5px solid var(--border); background: white;
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .card-toggle.close { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+    .card-toggle.close:hover { background: #fee2e2; border-color: #fca5a5; }
+    .card-toggle.open { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+    .card-toggle.open:hover { background: #dcfce7; border-color: #86efac; }
+    .card-toggle:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ===== RINGKASAN KONFIGURASI KELAS ===== */
+    .detail-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+    .cfg-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px; margin-bottom: 20px;
+    }
+    .cfg-item {
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; min-width: 0;
+    }
+    .cfg-item .k {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted);
+    }
+    .cfg-item .v { font-size: 14px; font-weight: 700; margin-top: 2px; word-break: break-word; }
+    .cfg-item .v.mono { font-family: 'Courier New', monospace; letter-spacing: 1px; }
+    .cfg-item .v.on { color: #166534; }
+    .cfg-item .v.off { color: var(--muted); font-weight: 600; }
+
+    /* ===== PREVIEW PAKET SOAL (GURU) ===== */
+    .preview-note {
+      font-size: 12px; color: #92400e; background: #fffbeb;
+      border: 1px solid #fde68a; border-radius: 8px;
+      padding: 8px 12px; margin-bottom: 16px;
+    }
+    .preview-summary { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .preview-list { display: flex; flex-direction: column; gap: 12px; }
+    .preview-item {
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; background: white;
+    }
+    .preview-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .preview-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; padding: 2px 8px; border-radius: 999px;
+      background: #eef2ff; color: #3730a3; white-space: nowrap;
+    }
+    .preview-q { font-size: 14px; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+    .preview-opt {
+      font-size: 13px; padding: 4px 8px; border-radius: 7px;
+      border: 1px solid transparent; word-break: break-word;
+    }
+    .preview-opt.kunci {
+      background: #f0fdf4; border-color: #86efac;
+      color: #166534; font-weight: 700;
+    }
+    .preview-pair { font-size: 13px; padding: 3px 0; word-break: break-word; }
+    .preview-kunci {
+      margin-top: 10px; font-size: 13px; font-weight: 600;
+      background: #f0fdf4; border: 1px dashed #86efac;
+      border-radius: 8px; padding: 8px 10px; color: #166534;
+      word-break: break-word;
+    }
     .empty-state {
       text-align: center; padding: 60px 20px; color: var(--muted);
     }
@@ -167,6 +248,7 @@
       display: flex; align-items: center; justify-content: center;
       z-index: 100; padding: 20px;
     }
+    #modal-edit { z-index: 110; }
     .modal {
       background: white; border-radius: 16px; max-width: 560px; width: 100%;
       max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25);
@@ -244,8 +326,28 @@
     @media (max-width: 700px) {
       .stat-row { grid-template-columns: repeat(2, 1fr); }
       .page-head { flex-direction: column; align-items: flex-start; }
+      .page-head .btn { width: 100%; text-align: center; }
       .user-chip .school { display: none; }
+      .user-chip { flex-wrap: wrap; justify-content: flex-end; }
       .form-row { flex-direction: column; gap: 0; }
+      .class-grid { grid-template-columns: 1fr; }
+      .class-card { padding: 16px; }
+      .detail-actions { margin-left: 0; width: 100%; }
+      .detail-actions .btn { flex: 1 1 auto; text-align: center; }
+      .cfg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .modal-body { padding: 16px; }
+      .modal-head, .modal-foot { padding: 14px 16px; }
+      .modal-foot .btn { flex: 1 1 auto; text-align: center; }
+      .dtabs { overflow-x: auto; }
+      .dtab { padding: 10px 12px; white-space: nowrap; }
+      table { font-size: 13px; }
+      th, td { padding: 8px 8px; }
+    }
+    @media (max-width: 420px) {
+      .package-select-row { align-items: stretch; flex-direction: column; }
+      .package-select-row .btn { width: 100%; }
+      .cfg-grid { grid-template-columns: 1fr; }
+      .container { padding: 16px 14px; }
     }
   </style>
 </head>
@@ -332,9 +434,13 @@
       <input type="text" id="new-nama-kelas" placeholder="Contoh: IX-A Matematika">
 
       <label>Paket Soal</label>
-      <select id="new-paket-id">
-        <option value="">Memuat paket...</option>
-      </select>
+      <div class="package-select-row">
+        <select id="new-paket-id" onchange="updateCreatePreviewButton()">
+          <option value="">Memuat paket...</option>
+        </select>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-preview-create-package"
+          onclick="openSelectedPackagePreview()" disabled>Preview Soal</button>
+      </div>
       <small style="color:var(--muted); font-size:12px">Hanya paket aktif yang ditampilkan.</small>
 
       <div class="form-row">
@@ -432,16 +538,45 @@
     </div>
 
     <div class="modal-body">
-      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px; align-items:center">
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; align-items:center">
         <div>
           <div style="font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase">Kode Kelas</div>
           <div class="kode-badge" id="detail-kode">—</div>
         </div>
         <div id="detail-status-wrap"></div>
-        <div style="margin-left:auto; display:flex; gap:8px">
+        <div class="detail-actions">
+          <button class="btn btn-outline btn-sm" id="btn-preview-paket" onclick="openPackagePreview()" disabled>Preview Paket</button>
           <button class="btn btn-outline btn-sm" id="btn-toggle-status" onclick="toggleClassStatus()">—</button>
           <button class="btn btn-primary btn-sm" id="btn-edit-class" onclick="openEditModal()" disabled>Edit</button>
           <button class="btn btn-danger btn-sm" id="btn-delete-class" onclick="doDeleteClassConfirm()" disabled>Hapus</button>
+        </div>
+      </div>
+
+      <!-- RINGKASAN KONFIGURASI KELAS -->
+      <div class="cfg-grid">
+        <div class="cfg-item">
+          <div class="k">Paket Soal</div>
+          <div class="v" id="cfg-paket">—</div>
+        </div>
+        <div class="cfg-item">
+          <div class="k">Durasi</div>
+          <div class="v" id="cfg-durasi">—</div>
+        </div>
+        <div class="cfg-item">
+          <div class="k">PIN Murid</div>
+          <div class="v mono" id="cfg-pin">—</div>
+        </div>
+        <div class="cfg-item">
+          <div class="k">Acak Urutan Soal</div>
+          <div class="v" id="cfg-acak">—</div>
+        </div>
+        <div class="cfg-item">
+          <div class="k">Pembahasan ke Murid</div>
+          <div class="v" id="cfg-pembahasan">—</div>
+        </div>
+        <div class="cfg-item">
+          <div class="k">Murid Terdaftar</div>
+          <div class="v" id="cfg-murid">—</div>
         </div>
       </div>
 
@@ -462,6 +597,25 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-outline" onclick="closeModal('modal-detail')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: PREVIEW PAKET SOAL (KHUSUS GURU) ============ -->
+<div id="modal-preview" class="overlay hidden">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3 id="preview-title">Preview Paket Soal</h3>
+      <button class="close" onclick="closeModal('modal-preview')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="preview-note">
+        🔒 Hanya untuk guru. Kunci jawaban tidak pernah dikirim ke halaman murid.
+      </div>
+      <div id="preview-wrap">Memuat...</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-preview')">Tutup</button>
     </div>
   </div>
 </div>
@@ -597,9 +751,25 @@ function loadClasses() {
     if (!res.ok) { wrap.innerHTML = '<div class="empty-state">Gagal memuat: ' + res.message + '</div>'; return; }
     state.classes = res.classes || [];
     renderClasses();
+    loadPackageNamesIfNeeded();
   }).catch(function (err) {
     wrap.innerHTML = '<div class="empty-state">' + API.friendlyError(err) + '</div>';
   });
+}
+
+/**
+ * Muat nama paket sekali saja agar kartu kelas bisa menampilkan nama paket.
+ * Kegagalan di sini tidak mengganggu dashboard (nama paket bersifat opsional).
+ */
+function loadPackageNamesIfNeeded() {
+  if (state.packagesLoaded || !state.guru) return;
+
+  API.getPackagesForTeacher(state.guru.id).then(function (res) {
+    if (!res.ok) return;
+    state.packages = res.packages || [];
+    state.packagesLoaded = true;
+    if (state.classes.length) renderClasses();
+  }).catch(function () { /* abaikan: hanya untuk label paket */ });
 }
 
 function renderClasses() {
@@ -612,18 +782,89 @@ function renderClasses() {
   state.classes.forEach(function (c) {
     var status = String(c.status || 'open').toLowerCase();
     var namaPaket = getNamaPaket(c.paket_id);
-    html += '<div class="class-card" onclick="openClassDetail(\'' + c.id + '\')">';
-    html += '  <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px">';
+    var isOpen = status === 'open';
+    var bisaToggle = (status === 'open' || status === 'closed');
+
+    html += '<div class="class-card" onclick="openClassDetail(\'' + esc(c.id) + '\')">';
+    html += '  <div class="class-card-head">';
     html += '    <h3>' + esc(c.nama_kelas) + '</h3>';
-    html += '    <span class="status-pill status-' + status + '">' + status + '</span>';
+    html += '    <span class="status-pill status-' + esc(status) + '">' + esc(status) + '</span>';
     html += '  </div>';
-    html += '  <div class="meta">' + c.jumlah_murid + ' murid · ' + c.durasi_menit + ' menit' +
+    html += '  <div class="meta">' + (parseInt(c.jumlah_murid, 10) || 0) + ' murid · ' +
+            (parseInt(c.durasi_menit, 10) || 0) + ' menit' +
             (namaPaket ? ' · ' + esc(namaPaket) : '') + '</div>';
-    html += '  <div class="kode-badge">' + esc(c.kode_kelas) + '</div>';
+    html += '  <div class="class-card-foot">';
+    html += '    <div class="kode-badge">' + esc(c.kode_kelas) + '</div>';
+    if (bisaToggle) {
+      // Klik toggle tidak boleh ikut membuka detail kelas (stopPropagation di handler).
+      html += '    <button type="button" class="card-toggle ' + (isOpen ? 'close' : 'open') + '"' +
+              ' data-class-id="' + esc(c.id) + '"' +
+              ' aria-label="' + (isOpen ? 'Tutup kelas' : 'Buka kelas') + '"' +
+              ' onclick="toggleClassStatusFromCard(event, \'' + esc(c.id) + '\', ' + (isOpen ? 1 : 0) + ')">' +
+              (isOpen ? 'Tutup' : 'Buka') + '</button>';
+    }
+    html += '  </div>';
     html += '</div>';
   });
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+/**
+ * Toggle buka/tutup langsung dari kartu kelas dashboard.
+ * @param {Event} ev - event klik (dihentikan agar tidak membuka detail kelas)
+ * @param {string} classId
+ * @param {number} closeNow - 1 = tutup, 0 = buka
+ */
+function toggleClassStatusFromCard(ev, classId, closeNow) {
+  if (ev) {
+    if (ev.stopPropagation) ev.stopPropagation();
+    if (ev.preventDefault) ev.preventDefault();
+  }
+  if (!classId) return;
+  closeNow = !!closeNow;
+
+  var pesan = closeNow
+    ? 'Tutup kelas ini? Murid tidak bisa mengirim jawaban setelah ini.'
+    : 'Buka kembali kelas ini? Murid bisa kembali mengerjakan.';
+  if (!confirm(pesan)) return;
+
+  var btn = document.querySelector('.card-toggle[data-class-id="' + classId + '"]');
+  var labelAsli = btn ? btn.textContent : '';
+  var kelasSama = function (x) { return x && String(x.id) === String(classId); };
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+
+  function pulihkanTombol() {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = labelAsli;
+  }
+
+  API.setClassClosed(classId, closeNow).then(function (res) {
+    if (!res.ok) {
+      toast(res.message || 'Gagal mengubah status kelas.', 'error');
+      pulihkanTombol();
+      return;
+    }
+
+    toast(closeNow ? 'Kelas ditutup.' : 'Kelas dibuka.', 'success');
+
+    // Sinkronkan state lokal agar kartu langsung mencerminkan status baru
+    state.classes.forEach(function (c) {
+      if (kelasSama(c)) c.status = closeNow ? 'closed' : 'open';
+    });
+    renderClasses();
+
+    // Jika detail kelas ini sedang terbuka, muat ulang tampilannya
+    var detailTerbuka = !document.getElementById('modal-detail').classList.contains('hidden');
+    if (detailTerbuka && kelasSama(state.currentClass)) {
+      openClassDetail(classId);
+    }
+  }).catch(function (err) {
+    toast(API.friendlyError(err), 'error');
+    pulihkanTombol();
+  });
 }
 
 function getNamaPaket(paketId) {
@@ -668,6 +909,7 @@ function renderPaketOptions() {
   var sel = document.getElementById('new-paket-id');
   if (!state.packages.length) {
     sel.innerHTML = '<option value="">Belum ada paket aktif. Hubungi admin.</option>';
+    updateCreatePreviewButton();
     return;
   }
   var html = '<option value="">— Pilih Paket —</option>';
@@ -675,17 +917,26 @@ function renderPaketOptions() {
     html += '<option value="' + esc(p.id) + '">' + esc(p.nama_paket) + '</option>';
   });
   sel.innerHTML = html;
+  updateCreatePreviewButton();
 }
 
 // ==========================================
 // BUAT KELAS
 // ==========================================
+function updateCreatePreviewButton() {
+  var select = document.getElementById('new-paket-id');
+  var button = document.getElementById('btn-preview-create-package');
+  if (select && button) button.disabled = !select.value;
+}
+
 function openCreateModal() {
   document.getElementById('new-nama-kelas').value = '';
   document.getElementById('new-durasi').value = 60;
   document.getElementById('new-pin').value = '';
   document.getElementById('new-acak').checked = false;
   document.getElementById('new-pembahasan').checked = false;
+  document.getElementById('new-paket-id').value = '';
+  updateCreatePreviewButton();
   document.getElementById('modal-create').classList.remove('hidden');
   loadPackagesForDropdown();
 }
@@ -739,6 +990,19 @@ function openClassDetail(classId) {
   document.getElementById('detail-kode').textContent = '—';
   document.getElementById('murid-table-wrap').innerHTML = 'Memuat...';
   document.getElementById('laporan-wrap').innerHTML = 'Memuat...';
+
+  // Reset ringkasan konfigurasi & tombol aksi selama memuat
+  document.getElementById('detail-status-wrap').innerHTML = '';
+  ['cfg-paket', 'cfg-durasi', 'cfg-pin', 'cfg-acak', 'cfg-pembahasan', 'cfg-murid'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.textContent = '—';
+    el.className = el.className.replace(/\s*\b(on|off)\b/g, '');
+  });
+  document.getElementById('btn-preview-paket').disabled = true;
+  document.getElementById('btn-toggle-status').disabled = true;
+  document.getElementById('btn-edit-class').disabled = true;
+  document.getElementById('btn-delete-class').disabled = true;
+
   document.getElementById('modal-detail').classList.remove('hidden');
   switchDetailTab('murid');
 
@@ -759,11 +1023,42 @@ function renderClassDetail(res) {
 
   var status = String(c.status || 'open').toLowerCase();
   document.getElementById('detail-status-wrap').innerHTML =
-    '<span class="status-pill status-' + status + '">' + status + '</span>';
+    '<span class="status-pill status-' + esc(status) + '">' + esc(status) + '</span>';
 
   var toggleBtn = document.getElementById('btn-toggle-status');
   toggleBtn.textContent = status === 'open' ? 'Tutup Kelas' : 'Buka Kelas';
   toggleBtn.className = status === 'open' ? 'btn btn-danger btn-sm' : 'btn btn-primary btn-sm';
+  toggleBtn.disabled = (status === 'deleted');
+  toggleBtn.title = status === 'deleted' ? 'Kelas sudah dihapus.' : '';
+
+  // Ringkasan konfigurasi kelas
+  var namaPaket = c.nama_paket || getNamaPaket(c.paket_id);
+  document.getElementById('cfg-paket').textContent = namaPaket || '—';
+
+  document.getElementById('cfg-durasi').textContent =
+    (parseInt(c.durasi_menit, 10) || 0) + ' menit';
+
+  var pinEl = document.getElementById('cfg-pin');
+  pinEl.textContent = c.pin ? c.pin : 'Tanpa PIN';
+  pinEl.className = c.pin ? 'v mono' : 'v off';
+
+  var acakEl = document.getElementById('cfg-acak');
+  acakEl.textContent = c.acak ? 'Ya, diacak per murid' : 'Tidak diacak';
+  acakEl.className = c.acak ? 'v on' : 'v off';
+
+  var pembahasanEl = document.getElementById('cfg-pembahasan');
+  pembahasanEl.textContent = c.tampil_pembahasan ? 'Ditampilkan ke murid' : 'Disembunyikan';
+  pembahasanEl.className = c.tampil_pembahasan ? 'v on' : 'v off';
+
+  document.getElementById('cfg-murid').textContent =
+    (res.students ? res.students.length : 0) + ' murid';
+
+  // Preview paket hanya berguna jika kelas punya paket
+  var previewBtn = document.getElementById('btn-preview-paket');
+  if (previewBtn) {
+    previewBtn.disabled = !c.paket_id;
+    previewBtn.title = c.paket_id ? 'Lihat isi paket soal beserta kunci jawaban (khusus guru).' : 'Paket soal tidak tersedia.';
+  }
 
   // Cek apakah sudah ada murid yang submit (untuk tombol Edit)
   var hasSubmitted = res.students && res.students.some(function (s) { return s.selesai === true; });
@@ -863,16 +1158,184 @@ function toggleClassStatus() {
   var newStatus = String(state.currentClass.status).toLowerCase() === 'open';
   if (!confirm(newStatus ? 'Tutup kelas? Murid tidak bisa mengirim jawaban setelah ini.' : 'Buka kembali kelas?')) return;
 
+  var btn = document.getElementById('btn-toggle-status');
+  var labelAsli = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Memproses...';
+
   API.setClassClosed(state.currentClass.id, newStatus).then(function (res) {
     if (res.ok) {
       toast(newStatus ? 'Kelas ditutup.' : 'Kelas dibuka.', 'success');
       openClassDetail(state.currentClass.id);
     } else {
       toast(res.message || 'Gagal.', 'error');
+      btn.disabled = false; btn.textContent = labelAsli;
     }
   }).catch(function (err) {
     toast(API.friendlyError(err), 'error');
+    btn.disabled = false; btn.textContent = labelAsli;
   });
+}
+
+// ==========================================
+// PREVIEW PAKET SOAL (KHUSUS GURU)
+// ==========================================
+/**
+ * Tampilkan isi paket soal + kunci jawaban untuk guru.
+ * Memakai endpoint khusus guru (getPackagePreview), bukan endpoint murid.
+ */
+function openSelectedPackagePreview() {
+  var paketId = document.getElementById('new-paket-id').value;
+  if (!paketId) {
+    toast('Pilih paket soal terlebih dahulu.', 'error');
+    return;
+  }
+  openPackagePreview(paketId);
+}
+
+function openPackagePreview(paketId) {
+  var c = null;
+  if (!paketId) {
+    c = state.currentClass;
+    paketId = c && c.paket_id;
+  }
+  if (!paketId) {
+    toast('Kelas ini belum memiliki paket soal.', 'error');
+    return;
+  }
+
+  var wrap = document.getElementById('preview-wrap');
+  document.getElementById('preview-title').textContent = 'Preview Paket Soal';
+  wrap.innerHTML = '<div class="empty-state" style="padding:24px 0">Memuat soal dan kunci jawaban...</div>';
+  document.getElementById('modal-preview').classList.remove('hidden');
+
+  API.getPackagePreview(paketId, state.guru ? state.guru.id : '').then(function (res) {
+    if (!res.ok) {
+      wrap.innerHTML = '<div class="empty-state" style="padding:24px 0">' +
+        esc(res.message || 'Gagal memuat paket soal.') + '</div>';
+      toast(res.message || 'Gagal memuat paket soal.', 'error');
+      return;
+    }
+    var paket = res.paket || {};
+    var nama = paket.nama_paket || getNamaPaket(paketId) ||
+      (c ? c.nama_kelas : 'Paket Soal');
+    document.getElementById('preview-title').textContent = 'Preview: ' + nama;
+    renderPackagePreview(res.soal || []);
+  }).catch(function (err) {
+    var pesan = API.friendlyError(err);
+    wrap.innerHTML = '<div class="empty-state" style="padding:24px 0">' + esc(pesan) + '</div>';
+    toast(pesan, 'error');
+  });
+}
+
+// ==========================================
+// RENDER PREVIEW PAKET SOAL
+// ==========================================
+var LABEL_TIPE_SOAL = {
+  pg: 'Pilihan Ganda',
+  isian: 'Isian Singkat',
+  uraian: 'Uraian',
+  benar_salah: 'Benar/Salah',
+  pg_kompleks: 'PG Kompleks',
+  memasangkan: 'Memasangkan'
+};
+
+function labelTipeSoal(tipe) {
+  return LABEL_TIPE_SOAL[String(tipe || 'pg').toLowerCase()] || 'Pilihan Ganda';
+}
+
+/** Huruf opsi dari teks pilihan, mis. "A. 170" -> "A". */
+function hurufOpsi(opt) {
+  var m = String(opt).trim().match(/^([A-Za-z])\s*[\.\)]/);
+  return m ? m[1].toUpperCase() : '';
+}
+
+/** Tampilkan isi paket soal beserta kunci jawaban. Semua teks di-escape. */
+function renderPackagePreview(soal) {
+  var wrap = document.getElementById('preview-wrap');
+
+  if (!soal.length) {
+    wrap.innerHTML = '<div class="empty-state" style="padding:24px 0">Paket ini belum berisi soal.</div>';
+    return;
+  }
+
+  var totalSkor = 0;
+  soal.forEach(function (q) { totalSkor += parseInt(q.skor, 10) || 0; });
+
+  var html = '<div class="preview-summary">' + soal.length + ' soal · total skor ' + totalSkor + '</div>';
+  html += '<div class="preview-list">';
+
+  soal.forEach(function (q, i) {
+    var tipe = String(q.tipe || 'pg').toLowerCase();
+    var kunci = String(q.jawaban == null ? '' : q.jawaban).trim();
+    var pilihan = q.pilihan || [];
+    var pasangan = q.pasangan || [];
+
+    html += '<div class="preview-item">';
+    html += '  <div class="preview-meta">';
+    html += '    <span class="preview-badge">Soal ' + (i + 1) + '</span>';
+    html += '    <span class="preview-badge">' + esc(labelTipeSoal(tipe)) + '</span>';
+    html += '    <span class="preview-badge">Skor ' + (parseInt(q.skor, 10) || 0) + '</span>';
+    html += '  </div>';
+    html += '  <div class="preview-q">' + rich(q.pertanyaan || '') + '</div>';
+
+    if (tipe === 'memasangkan' && pasangan.length) {
+      html += '<div style="font-size:12px; color:var(--muted); margin-bottom:4px">Pasangan kiri → kanan:</div>';
+      pasangan.forEach(function (pair) {
+        html += '  <div class="preview-pair">• ' + rich(pair.kiri || '') + ' → ' + rich(pair.kanan || '') + '</div>';
+      });
+      html += '  <div class="preview-kunci">🔑 Kunci: ' + rich(formatKunciPasangan(kunci, pasangan)) + '</div>';
+    } else if (tipe === 'benar_salah') {
+      html += '  <div class="preview-kunci">🔑 Kunci: ' + rich(kunci || '—') + '</div>';
+    } else {
+      var kunciList = kunci.split(',').map(function (x) { return String(x).trim().toUpperCase(); })
+        .filter(function (x) { return x !== ''; });
+
+      pilihan.forEach(function (opt) {
+        var huruf = hurufOpsi(opt);
+        var cocok = huruf !== '' && kunciList.indexOf(huruf) >= 0;
+        html += '  <div class="preview-opt' + (cocok ? ' kunci' : '') + '">' + rich(opt) + '</div>';
+      });
+
+      if (tipe === 'pg_kompleks') {
+        html += '  <div class="preview-kunci">🔑 Kunci: ' + rich(kunciList.join(', ') || '—') + '</div>';
+      } else if (tipe === 'uraian') {
+        html += '  <div class="preview-kunci">🔑 Kunci: ' +
+          (kunci ? rich(kunci) : 'Tidak ada kunci pasti (uraian dinilai manual).') + '</div>';
+      } else {
+        html += '  <div class="preview-kunci">🔑 Kunci: ' + rich(kunci || '—') + '</div>';
+      }
+    }
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+/** Ubah kunci "1-A,2-B" menjadi "1/2 → A. 0.5; 1/4 → B. 0.25". */
+function formatKunciPasangan(kunci, pasangan) {
+  if (!kunci) return '—';
+
+  var hasil = [];
+  kunci.split(',').forEach(function (pair) {
+    var parts = String(pair).split('-');
+    if (parts.length !== 2) return;
+
+    var idxKiri = parseInt(parts[0], 10);
+    var hurufKanan = String(parts[1]).trim().toUpperCase();
+
+    var kiri = pasangan[idxKiri - 1] ? pasangan[idxKiri - 1].kiri : '?';
+    var kanan = '?';
+    for (var j = 0; j < pasangan.length; j++) {
+      if (hurufOpsi(pasangan[j].kanan) === hurufKanan) { kanan = pasangan[j].kanan; break; }
+    }
+    if (kanan === '?' && pasangan[idxKiri - 1]) kanan = pasangan[idxKiri - 1].kanan;
+
+    hasil.push(kiri + ' → ' + kanan);
+  });
+
+  return hasil.length ? hasil.join('; ') : kunci;
 }
 
 // ==========================================
@@ -1019,6 +1482,13 @@ function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function rich(s) {
+  return esc(s)
+    .replace(/&lt;sup&gt;/gi, '<sup>')
+    .replace(/&lt;\/sup&gt;/gi, '</sup>')
+    .replace(/&lt;sub&gt;/gi, '<sub>')
+    .replace(/&lt;\/sub&gt;/gi, '</sub>');
 }
 var toastTimer;
 function toast(msg, type) {

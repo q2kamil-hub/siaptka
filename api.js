@@ -283,6 +283,30 @@
       return _request('getPackagesForTeacher', { teacher_id: teacherId || '' });
     },
 
+    // ---------- PAKET PREVIEW (guru) ----------
+
+    /**
+     * Preview isi paket soal beserta kunci jawaban (HANYA GURU).
+     * Tidak ada endpoint murid yang mengembalikan kunci jawaban.
+     * @param {string} paketId
+     * @param {string} teacherId
+     */
+    getPackagePreview: function (paketId, teacherId) {
+      var session = getSession();
+      if (!session || !session.id || session.id !== teacherId || !session.preview_token) {
+        return Promise.resolve({
+          ok: false,
+          message: 'Sesi guru tidak tersedia atau kedaluwarsa. Silakan keluar lalu login kembali.'
+        });
+      }
+
+      return _request('getPackagePreview', {
+        paket_id: paketId,
+        teacher_id: teacherId,
+        preview_token: session.preview_token
+      });
+    },
+
     // ---------- ADMIN (super admin) ----------
 
     adminGenerateActivation: function (token, jumlah) {

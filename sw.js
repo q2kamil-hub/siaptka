@@ -18,11 +18,14 @@
  *  v6 — tambah head.js (Fase 4: favicon terpusat)
  *  v7 — murid: auto-save jawaban (localStorage) + review opsi di pembahasan
  *  v8 — murid: dukungan tipe soal baru (uraian, benar_salah, pg_kompleks, memasangkan)
+ *  v9 — guru: preview paket soal (khusus guru) + ringkasan konfigurasi kelas
+ *  v10 — guru: toggle buka/tutup di kartu kelas + perapian tata letak responsif
+ *  v11 — index: PWA gate selalu memberi instruksi dan tidak memakai penanda install localStorage
  */
 
-const CACHE_VERSION = 'siaptka-v9';
+const CACHE_VERSION = 'siaptka-v11';
 const APP_SHELL = [
-  './',
+  './index.html',
   './',
   './landing',
   './guru',

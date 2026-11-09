@@ -75,6 +75,11 @@
       font-size: 12px; color: var(--muted); margin-top: 14px;
       line-height: 1.5;
     }
+    #pwa-status {
+      font-size: 13px; color: #92400e; background: #fffbeb;
+      border: 1px solid #fde68a; border-radius: 8px;
+      padding: 10px 12px; margin-top: 14px; line-height: 1.5;
+    }
 
     /* ===== ROLE SELECTION ===== */
     #role-section h2 {
@@ -137,16 +142,14 @@
   <div class="card">
 
     <!-- BANNER INSTALL PWA (gerbang ketat) -->
-    <div id="pwa-banner" class="hidden">
+    <div id="pwa-banner">
       <div class="icon">🔒</div>
-      <h3>Akses Terkunci</h3>
-      <p>Untuk alasan keamanan dan kenyamanan, aplikasi hanya dapat diakses melalui <strong>Aplikasi</strong> yang sudah terpasang.</p>
-      <button class="btn btn-primary" style="margin-top:16px" onclick="installPWA()">
+      <h3 id="pwa-title">Buka SiapTKA dari aplikasi</h3>
+      <p id="pwa-description">Untuk melanjutkan, buka SiapTKA dari ikon aplikasi di layar utama perangkat Anda.</p>
+      <button id="pwa-install-button" class="btn btn-primary hidden" style="margin-top:16px" onclick="installPWA()">
         📲 Install Aplikasi ke Perangkat
       </button>
-      <p class="hint">
-        Jika sudah menginstal, buka melalui ikon di Layar Utama (HP) atau Desktop—bukan dari link browser ini.
-      </p>
+      <p class="hint" id="pwa-install-hint">Belum memasang aplikasi? Gunakan menu browser untuk menambahkan SiapTKA ke layar utama.</p>
     </div>
 
     <!-- PILIHAN PERAN (hanya tampil jika sudah terinstall) -->
@@ -173,19 +176,25 @@
 
   </div>
 
+  <p id="pwa-status" class="hidden" role="status" aria-live="polite"></p>
   <a href="./landing" class="back-link">← Kembali ke halaman utama</a>
 
   <script>
     // ==========================================
-    // PWA GATE (ketat — sama seperti v1)
+    // PWA GATE: peran hanya tersedia saat aplikasi dibuka dalam mode terpasang.
     // ==========================================
     const pwaBanner = document.getElementById('pwa-banner');
     const roleSection = document.getElementById('role-section');
-
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true;
-    const isInstalled = localStorage.getItem('pwa_installed') === 'true';
+    const installButton = document.getElementById('pwa-install-button');
+    const installHint = document.getElementById('pwa-install-hint');
+    const pwaStatus = document.getElementById('pwa-status');
+    const standaloneQuery = window.matchMedia
+      ? window.matchMedia('(display-mode: standalone)')
+      : null;
+    const isStandalone = !!(
+      (standaloneQuery && standaloneQuery.matches) ||
+      window.navigator.standalone === true
+    );
 
     let deferredPrompt = null;
 
@@ -194,45 +203,71 @@
       pwaBanner.classList.add('hidden');
     }
 
-    // 1. Jika sudah standalone / pernah install → langsung buka gerbang
-    if (isStandalone || isInstalled) {
+    function setPwaStatus(message) {
+      pwaStatus.textContent = message;
+      pwaStatus.classList.remove('hidden');
+    }
+
+    function getInstallInstructions() {
+      const ua = navigator.userAgent || '';
+      const isAppleMobile = /iPhone|iPad|iPod/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isAppleMobile) {
+        return "Di Safari, tekan Bagikan lalu pilih 'Tambah ke Layar Utama'. Setelah terpasang, buka SiapTKA dari ikon tersebut.";
+      }
+      if (/Android/i.test(ua)) {
+        return "Di Chrome Android, buka menu ⋮ lalu pilih 'Install app' atau 'Tambahkan ke layar utama'. Setelah terpasang, buka SiapTKA dari ikon tersebut.";
+      }
+      return "Buka menu browser atau ikon instalasi di bilah alamat, pilih Install/Tambahkan ke layar utama, lalu jalankan SiapTKA dari ikon aplikasi.";
+    }
+
+    // Banner terlihat sejak HTML awal; pilihan peran hanya dibuka dari aplikasi terpasang.
+    if (isStandalone) {
       bukaGerbang();
+    } else {
+      pwaBanner.classList.remove('hidden');
+      installHint.textContent = getInstallInstructions();
     }
 
     // 2. Tangkap event install
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      if (!isStandalone && !isInstalled) {
-        pwaBanner.classList.remove('hidden');
+      if (!isStandalone) {
+        installButton.classList.remove('hidden');
       }
     });
 
-    // 3. Tombol install
-    function installPWA() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choice) => {
-          if (choice.outcome === 'accepted') {
-            localStorage.setItem('pwa_installed', 'true');
-            window.location.reload();
-          } else {
-            alert("Anda harus menginstal aplikasi ini untuk bisa masuk.");
-          }
-          deferredPrompt = null;
-        });
-      } else {
-        alert("Browser Anda belum mendukung pop-up otomatis.\n\n" +
-              "Silakan klik menu titik tiga (Chrome) atau ikon Share (Safari), " +
-              "lalu pilih 'Tambahkan ke Layar Utama'. Setelah itu buka aplikasi " +
-              "dari layar utama.");
+    async function installPWA() {
+      if (!deferredPrompt) {
+        installHint.textContent = getInstallInstructions();
+        return;
+      }
+
+      const promptEvent = deferredPrompt;
+      deferredPrompt = null;
+      installButton.classList.add('hidden');
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === 'accepted') {
+          setPwaStatus('SiapTKA sedang dipasang. Setelah selesai, buka aplikasi dari ikon di layar utama.');
+        } else {
+          installButton.classList.remove('hidden');
+          setPwaStatus('Instalasi belum dilakukan. Anda tetap dapat memasang SiapTKA melalui menu browser.');
+        }
+      } catch (error) {
+        installButton.classList.remove('hidden');
+        setPwaStatus('Prompt instalasi tidak dapat dibuka. Silakan ikuti petunjuk pemasangan di atas.');
+        console.error('[PWA] Gagal menampilkan prompt instalasi:', error);
       }
     }
 
-    // 4. Deteksi install sukses
+    // Tetap di browser biasa setelah install; gerbang terbuka saat aplikasi diluncurkan.
     window.addEventListener('appinstalled', () => {
-      localStorage.setItem('pwa_installed', 'true');
-      window.location.reload();
+      deferredPrompt = null;
+      installButton.classList.add('hidden');
+      setPwaStatus('SiapTKA sudah terpasang. Tutup halaman ini lalu buka aplikasi dari ikon di layar utama.');
     });
 
     // ==========================================
@@ -249,8 +284,13 @@
     // Service worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.register('sw.js').catch((error) => {
+          setPwaStatus('Pendaftaran komponen offline gagal. Periksa koneksi, lalu muat ulang halaman.');
+          console.error('[PWA] Gagal mendaftarkan service worker:', error);
+        });
       });
+    } else {
+      setPwaStatus('Browser ini tidak mendukung komponen offline SiapTKA. Gunakan browser terbaru dan buka melalui HTTPS.');
     }
   </script>
 </body>

@@ -5,8 +5,8 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ```markdown
 # 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
 
-> **Status**: Versi 1.8 ✅ (Variasi Tipe Soal Baru: Uraian, Benar/Salah, PG Kompleks, Memasangkan) + Dukungan Format Pangkat/Akar
-> **Terakhir diperbarui**: Setelah implementasi pembaruan rendering `murid.html` dan sinkronisasi `Konfigurasi_Authoring_Soal.md`.
+> **Status**: Versi 1.8.5 ✅ (Penyempurnaan Dashboard Guru: Preview Paket Soal + Kunci, Toggle Buka/Tutup di Kartu, Ringkasan Konfigurasi Kelas, Tata Letak Responsif) — di atas basis Versi 1.8
+> **Terakhir diperbarui**: Setelah implementasi Versi 1.8.5 dan perbaikan PWA gate di `index.html` (Service Worker `siaptka-v11`).
 > **Tahap Selanjutnya**: Versi 1.9 (Manajemen Lanjutan Admin)
 
 ---
@@ -39,7 +39,7 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 |---|---|---|
 | `/` (index.html) | Gerbang peran + **PWA gate ketat** | ✅ |
 | `/landing` (landing.html) | Halaman jualan publik (boleh dibuka di browser biasa) | ✅ |
-| `/guru` (guru.html) | Login/aktivasi guru, dashboard, buat kelas, edit/hapus kelas, laporan | ✅ |
+| `/guru` (guru.html) | Login/aktivasi guru, dashboard, buat kelas, edit/hapus kelas, laporan. **Kartu kelas punya toggle buka/tutup sendiri, detail kelas menampilkan ringkasan konfigurasi, dan tersedia Preview Paket Soal (khusus guru).** | ✅ |
 | `/murid` (murid.html) | Join via kode kelas + PIN, kerjakan soal (auto-save), submit, pembahasan + review opsi. **Mendukung rendering `<sup>`/`<sub>` pada teks soal.** | ✅ |
 | `/admin` (admin.html) | Panel admin (token), kelola aktivasi & paket soal, reset aktif | ✅ |
 | `api.js` | **Lapisan API terpusat** — satu-satunya file yang tahu GAS | ✅ |
@@ -128,7 +128,7 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 
 | Lapisan | Implementasi |
 |---|---|
-| **PWA Gate** | Form login/aktivasi hanya muncul jika `isStandalone === true` atau `pwa_installed === 'true'`. |
+| **PWA Gate** | Pilihan peran hanya muncul dalam mode standalone. Browser biasa selalu menampilkan petunjuk instalasi (termasuk Safari/iOS); status instalasi tidak ditebak dari `localStorage`. |
 | **Password Hashing** | SHA-256 + salt unik per guru. |
 | **Anti Brute-force** | `Utilities.sleep(800)` di `handleTeacherLogin`. |
 | **Kunci Jawaban** | Tidak dikirim ke `murid.html`; pencocokan di server. |
@@ -145,7 +145,6 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 ### ✅ Prioritas 1: Manajemen Kelas & Guru (Versi 1.5 — SELESAI)
 - [x] **Edit Kelas**: Guru dapat mengubah nama kelas, durasi, acak, dan tampil pembahasan selama belum ada murid yang submit.
 - [x] **Hapus Kelas (Soft Delete)**: Mengubah status kelas menjadi `deleted`.
-- [x] **Buka/Tutup Kelas Cepat**: Tombol di dashboard guru tanpa masuk ke detail.
 - [x] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
 
 ### ✅ Prioritas 2: Validasi & Normalisasi Input (Versi 1.6 — SELESAI)
@@ -177,6 +176,18 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 | `pg_kompleks` | Daftar huruf dipisah koma (mis. `A,C`) | Skor dibagi rata untuk setiap kunci benar. Setiap opsi benar yang dipilih = 1 bagian. Opsi salah tidak menambah/mengurangi. Total per soal tidak melebihi skor maks. |
 | `memasangkan` | Daftar pasangan `1-A,2-B,3-C` | Skor dibagi rata untuk setiap pasangan kiri yang cocok. Pasangan yang tidak cocok/belum dipilih = 0. Total per soal tidak melebihi skor maks. |
 
+### Versi 1.8.5 — Penyempurnaan Dashboard Guru
+- [x] **Preview Paket Soal**: Guru dapat melihat isi paket soal beserta kunci jawabannya dari form buat kelas dan detail kelas. Preview memakai sesi guru bertoken dan tidak menggunakan endpoint soal murid yang sengaja tidak mengirim kunci.
+- [x] **Toggle Buka/Tutup di Kartu Kelas**: Kontrol tersedia langsung pada kartu tanpa membuka detail, disertai konfirmasi, indikator status, dan pemulihan tombol jika request gagal.
+- [x] **Ringkasan Konfigurasi Kelas**: Detail kelas menampilkan paket soal, durasi, PIN, status acak urutan soal, dan status tampilkan pembahasan ke murid.
+- [x] **Perapian Tata Letak Guru**: Tata letak kartu, detail, dan kontrol preview responsif; diperiksa pada lebar layar 375 px tanpa horizontal overflow.
+
+### Perbaikan PWA — Gerbang Akses Mobile
+- [x] Halaman indeks selalu menampilkan pesan saat dibuka dari browser biasa, termasuk jika browser tidak mendukung prompt instalasi.
+- [x] Pilihan peran hanya dibuka berdasarkan mode standalone; penanda `localStorage` tidak lagi dapat membuka akses setelah aplikasi dihapus.
+- [x] Petunjuk instalasi dibedakan untuk iOS/Safari, Android, dan browser desktop.
+- [x] Kegagalan pendaftaran Service Worker ditampilkan dengan pesan yang jelas; cache dinaikkan ke `siaptka-v11`.
+
 ### Versi 1.9 — Manajemen Lanjutan Admin
 Fitur kontrol untuk Anda sebagai pemilik aplikasi.
 - [ ] Blokir/Nonaktifkan Guru: Tambah kolom `is_blocked` di database, dan tombol aksi di `admin.html`.
@@ -199,7 +210,7 @@ Untuk melanjutkan ke Versi 1.9, lampirkan file berikut ke chat baru:
 3. **`guru.html`** (Frontend guru).
 4. **`murid.html`** (Frontend murid dengan dukungan tipe soal baru + Auto-save + Review Jawaban + Render `<sup>`/`<sub>`).
 5. **`admin.html`** (Panel admin versi 1.6).
-6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v8`).
+6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v11`).
 7. **`soal.xml`** (Contoh tipe soal baru: uraian, benar_salah, pg_kompleks, memasangkan, beserta notasi `<sup>`).
 8. **File ini (`Catatan_Konfigurasi.md`)**.
 9. **`Konfigurasi_Authoring_Soal.md`** (Panduan prompt AI untuk membuat soal TKA).
