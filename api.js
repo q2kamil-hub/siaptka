@@ -93,7 +93,9 @@
   function saveSession(data) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      return true;
     } catch (e) { /* storage penuh / private mode */ }
+    return false;
   }
 
   function getSession() {
@@ -121,7 +123,7 @@
       return Promise.resolve({
         ok: false,
         code: 'SESSION_REVOKED',
-        message: 'Sesi guru tidak tersedia. Silakan login kembali.'
+        message: 'Sesi lokal tidak lengkap. Login kembali; jika masalah berulang, perbarui frontend dan backend ke versi yang sama.'
       });
     }
 
@@ -157,7 +159,21 @@
       return _request('teacherLogin', { email: email, password: password })
         .then(function (res) {
           if (res && res.ok && res.guru) {
-            saveSession(res.guru);
+            if (!res.guru.id || !res.guru.preview_token) {
+              clearSession();
+              return {
+                ok: false,
+                code: 'BACKEND_VERSION_MISMATCH',
+                message: 'Login diterima tetapi backend belum mengirim token sesi. Deploy versi terbaru Code.gs lalu muat ulang aplikasi.'
+              };
+            }
+            if (!saveSession(res.guru)) {
+              return {
+                ok: false,
+                code: 'SESSION_STORAGE_ERROR',
+                message: 'Sesi login tidak dapat disimpan di browser. Periksa pengaturan penyimpanan browser.'
+              };
+            }
           }
           return res;
         });
@@ -176,7 +192,21 @@
         password: password
       }).then(function (res) {
         if (res && res.ok && res.guru) {
-          saveSession(res.guru);
+          if (!res.guru.id || !res.guru.preview_token) {
+            clearSession();
+            return {
+              ok: false,
+              code: 'BACKEND_VERSION_MISMATCH',
+              message: 'Aktivasi berhasil tetapi backend belum mengirim token sesi. Deploy versi terbaru Code.gs lalu muat ulang aplikasi.'
+            };
+          }
+          if (!saveSession(res.guru)) {
+            return {
+              ok: false,
+              code: 'SESSION_STORAGE_ERROR',
+              message: 'Sesi aktivasi tidak dapat disimpan di browser. Periksa pengaturan penyimpanan browser.'
+            };
+          }
         }
         return res;
       });
@@ -191,6 +221,10 @@
 
     logout: function () {
       clearSession();
+    },
+
+    saveSession: function (data) {
+      return saveSession(data);
     },
 
     /**
