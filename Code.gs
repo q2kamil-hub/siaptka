@@ -34,7 +34,7 @@ var SH = {
 
 // Header tiap tab (urut kolom)
 var HEADERS = {
-  Teachers:    ['id','email','password_hash','salt','nama','sekolah','aktif_sampai','created_at'],
+  Teachers:    ['id','email','password_hash','salt','nama','sekolah','aktif_sampai','created_at','is_blocked','session_version'],
   Activations: ['kode','dipakai_oleh','tanggal_pakai','status'],
   Classes:     ['id','teacher_id','nama_kelas','paket_id','kode_kelas','pin','durasi_menit','buka','tutup','acak','tampil_pembahasan','status','created_at'],
   Students:    ['id','class_id','nama','absen','waktu_masuk'],
@@ -113,6 +113,16 @@ function initSheet(ss) {
       sheet.setFrozenRows(1);
     }
   });
+
+  var teachersSheet = ss.getSheetByName(SH.TEACHERS);
+  var teacherHeaders = teachersSheet.getRange(1, 1, 1, teachersSheet.getLastColumn()).getValues()[0];
+  if (teacherHeaders.indexOf('is_blocked') < 0) {
+    teachersSheet.getRange(1, teachersSheet.getLastColumn() + 1).setValue('is_blocked');
+    teacherHeaders.push('is_blocked');
+  }
+  if (teacherHeaders.indexOf('session_version') < 0) {
+    teachersSheet.getRange(1, teachersSheet.getLastColumn() + 1).setValue('session_version');
+  }
 }
 
 function getSheet(name) {
@@ -184,6 +194,8 @@ function doGet(e) {
       // ---- ADMIN ----
       case 'adminGenerateActivation': result = handleAdminGenerateActivation(p); break;
       case 'adminListTeachers':       result = handleAdminListTeachers(p); break;
+      case 'adminSetTeacherBlocked':  result = handleAdminSetTeacherBlocked(p); break;
+      case 'adminForceLogoutTeacher': result = handleAdminForceLogoutTeacher(p); break;
 
       // ---- PAKET (guru) ----
       case 'getPackagesForTeacher': result = handleGetPackagesForTeacher(p); break;
@@ -237,6 +249,10 @@ function handleTeacherLogin(p) {
   var data = {};
   headers.forEach(function (h, i) { data[h] = row[i]; });
 
+  if (isTeacherBlocked(data.is_blocked)) {
+    return { ok: false, message: 'Akun guru dinonaktifkan oleh admin.' };
+  }
+
   // Cek masa aktif
   if (data.aktif_sampai) {
     var sampai = new Date(data.aktif_sampai);
@@ -257,7 +273,7 @@ function handleTeacherLogin(p) {
     sekolah: data.sekolah || '',
     aktif_sampai: data.aktif_sampai || ''
   };
-  guru.preview_token = createTeacherPreviewToken(data.id);
+  guru.preview_token = createTeacherPreviewToken(data.id, data.session_version);
 
   return {
     ok: true,
@@ -265,31 +281,18 @@ function handleTeacherLogin(p) {
   };
 }
 
-function createTeacherPreviewToken(teacherId) {
+function createTeacherPreviewToken(teacherId, sessionVersion) {
   var token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
   CacheService.getScriptCache().put(
     'teacher-preview:' + token,
-    String(teacherId),
+    JSON.stringify({ teacher_id: String(teacherId), session_version: String(sessionVersion || '1') }),
     TEACHER_PREVIEW_SESSION_TTL_SECONDS
   );
   return token;
 }
 
 function isTeacherPreviewSessionValid(teacherId, token) {
-  if (!teacherId || !token) return false;
-
-  var cachedTeacherId = CacheService.getScriptCache().get('teacher-preview:' + token);
-  if (!cachedTeacherId || cachedTeacherId !== teacherId) return false;
-
-  var sheet = getSheet(SH.TEACHERS);
-  var rowIdx = findRowIndex(sheet, 'id', teacherId);
-  if (rowIdx < 0) return false;
-
-  var row = sheet.getRange(rowIdx, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var activeUntil = row[HEADERS.Teachers.indexOf('aktif_sampai')];
-  if (activeUntil && new Date(activeUntil).getTime() < Date.now()) return false;
-
-  return true;
+  return getTeacherSessionError(teacherId, token) === null;
 }
 
 function handleActivateTeacher(p) {
@@ -325,9 +328,8 @@ function handleActivateTeacher(p) {
   var salt = generateSalt();
   var hash = hashPassword(pass, salt);
   var aktifSampai = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 tahun
-  var previewToken = createTeacherPreviewToken(id);
-
-  tSheet.appendRow([id, email, hash, salt, nama, sekolah, aktifSampai, nowIso()]);
+  tSheet.appendRow([id, email, hash, salt, nama, sekolah, aktifSampai, nowIso(), '0', '1']);
+  var previewToken = createTeacherPreviewToken(id, '1');
 
   // Tandai kode aktivasi terpakai
   actSheet.getRange(actRow, 2).setValue(email);
@@ -361,6 +363,8 @@ function handleCreateClass(p) {
   if (!teacherId || !namaKelas || !paketId) {
     return { ok: false, message: 'Nama kelas dan paket soal wajib diisi.' };
   }
+  var sessionError = getTeacherSessionError(teacherId, p.preview_token);
+  if (sessionError) return sessionError;
 
   if (durasi < 1 || durasi > 180) {
     return { ok: false, message: 'Durasi kelas harus antara 1 dan 180 menit.' };
@@ -404,6 +408,8 @@ function handleCreateClass(p) {
 function handleGetMyClasses(p) {
   var teacherId = String(p.teacher_id || '').trim();
   if (!teacherId) return { ok: false, message: 'teacher_id wajib.' };
+  var sessionError = getTeacherSessionError(teacherId, p.preview_token);
+  if (sessionError) return sessionError;
 
   var cSheet = getSheet(SH.CLASSES);
   var all = readAll(cSheet);
@@ -436,6 +442,8 @@ function handleGetMyClasses(p) {
 function handleGetClassDetail(p) {
   var classId = String(p.class_id || '').trim();
   if (!classId) return { ok: false, message: 'class_id wajib.' };
+  var sessionError = getClassTeacherSessionError(classId, p.teacher_id, p.preview_token);
+  if (sessionError) return sessionError;
 
   var cSheet = getSheet(SH.CLASSES);
   var cRow = findRowIndex(cSheet, 'id', classId);
@@ -502,6 +510,8 @@ function handleGetClassDetail(p) {
 function handleGetClassAnalytics(p) {
   var classId = String(p.class_id || '').trim();
   if (!classId) return { ok: false, message: 'class_id wajib.' };
+  var sessionError = getClassTeacherSessionError(classId, p.teacher_id, p.preview_token);
+  if (sessionError) return sessionError;
 
   var cSheet = getSheet(SH.CLASSES);
   var cRow = findRowIndex(cSheet, 'id', classId);
@@ -598,6 +608,8 @@ function handleSetClassClosed(p) {
   var classId = String(p.class_id || '').trim();
   var tutup = String(p.tutup) === '1';
   if (!classId) return { ok: false, message: 'class_id wajib.' };
+  var sessionError = getClassTeacherSessionError(classId, p.teacher_id, p.preview_token);
+  if (sessionError) return sessionError;
 
   var cSheet = getSheet(SH.CLASSES);
   var row = findRowIndex(cSheet, 'id', classId);
@@ -621,6 +633,8 @@ function handleEditClass(p) {
   var tampilPembahasan = String(p.tampil_pembahasan) === '1' || p.tampil_pembahasan === true;
 
   if (!classId) return { ok: false, message: 'class_id wajib.' };
+  var sessionError = getClassTeacherSessionError(classId, p.teacher_id, p.preview_token);
+  if (sessionError) return sessionError;
   if (!namaKelas) return { ok: false, message: 'Nama kelas wajib diisi.' };
 
   if (durasi < 1 || durasi > 180) {
@@ -666,6 +680,8 @@ function handleEditTeacherProfile(p) {
 
   if (!teacherId) return { ok: false, message: 'teacher_id wajib.' };
   if (!nama) return { ok: false, message: 'Nama wajib diisi.' };
+  var sessionError = getTeacherSessionError(teacherId, p.preview_token);
+  if (sessionError) return sessionError;
 
   var tSheet = getSheet(SH.TEACHERS);
   var row = findRowIndex(tSheet, 'id', teacherId);
@@ -709,6 +725,8 @@ function handleEditTeacherProfile(p) {
 function handleDeleteClass(p) {
   var classId = String(p.class_id || '').trim();
   if (!classId) return { ok: false, message: 'class_id wajib.' };
+  var sessionError = getClassTeacherSessionError(classId, p.teacher_id, p.preview_token);
+  if (sessionError) return sessionError;
 
   var cSheet = getSheet(SH.CLASSES);
   var row = findRowIndex(cSheet, 'id', classId);
@@ -991,10 +1009,107 @@ function handleAdminListTeachers(p) {
   var rows = readAll(sheet).map(function (r) {
     return {
       id: r.id, email: r.email, nama: r.nama, sekolah: r.sekolah,
-      aktif_sampai: r.aktif_sampai, created_at: r.created_at
+      aktif_sampai: r.aktif_sampai, created_at: r.created_at,
+      is_blocked: isTeacherBlocked(r.is_blocked) ? '1' : '0'
     };
   });
   return { ok: true, list: rows };
+}
+
+function handleAdminSetTeacherBlocked(p) {
+  if (String(p.token) !== ADMIN_TOKEN) {
+    return { ok: false, message: 'Token admin salah.' };
+  }
+
+  var teacherId = String(p.teacher_id || '').trim();
+  var blockedValue = String(p.is_blocked);
+  if (!teacherId) return { ok: false, message: 'teacher_id wajib.' };
+  if (blockedValue !== '0' && blockedValue !== '1') {
+    return { ok: false, message: 'is_blocked harus bernilai 0 atau 1.' };
+  }
+
+  var sheet = getSheet(SH.TEACHERS);
+  var row = findRowIndex(sheet, 'id', teacherId);
+  if (row < 0) return { ok: false, message: 'Guru tidak ditemukan.' };
+
+  var blockedColumn = HEADERS.Teachers.indexOf('is_blocked') + 1;
+  var versionColumn = HEADERS.Teachers.indexOf('session_version') + 1;
+  sheet.getRange(row, blockedColumn).setValue(blockedValue);
+  var currentVersion = parseInt(sheet.getRange(row, versionColumn).getValue(), 10) || 1;
+  sheet.getRange(row, versionColumn).setValue(currentVersion + 1);
+  return { ok: true, is_blocked: blockedValue };
+}
+
+function handleAdminForceLogoutTeacher(p) {
+  if (String(p.token) !== ADMIN_TOKEN) {
+    return { ok: false, message: 'Token admin salah.' };
+  }
+
+  var teacherId = String(p.teacher_id || '').trim();
+  if (!teacherId) return { ok: false, message: 'teacher_id wajib.' };
+
+  var sheet = getSheet(SH.TEACHERS);
+  var row = findRowIndex(sheet, 'id', teacherId);
+  if (row < 0) return { ok: false, message: 'Guru tidak ditemukan.' };
+
+  var versionColumn = HEADERS.Teachers.indexOf('session_version') + 1;
+  var currentVersion = parseInt(sheet.getRange(row, versionColumn).getValue(), 10) || 1;
+  sheet.getRange(row, versionColumn).setValue(currentVersion + 1);
+  return { ok: true };
+}
+
+function isTeacherBlocked(value) {
+  var normalized = String(value == null ? '' : value).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
+}
+
+function getTeacherSessionError(teacherId, token) {
+  teacherId = String(teacherId || '').trim();
+  token = String(token || '').trim();
+  if (!teacherId || !token) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Sesi guru tidak tersedia. Silakan login kembali.' };
+  }
+
+  var cachedSession = CacheService.getScriptCache().get('teacher-preview:' + token);
+  var session = null;
+  try { session = cachedSession ? JSON.parse(cachedSession) : null; } catch (e) {}
+  if (!session || String(session.teacher_id) !== teacherId) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Sesi telah berakhir atau dicabut. Silakan login kembali.' };
+  }
+
+  var sheet = getSheet(SH.TEACHERS);
+  var row = findRowIndex(sheet, 'id', teacherId);
+  if (row < 0) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Akun guru tidak ditemukan. Silakan login kembali.' };
+  }
+
+  var values = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (isTeacherBlocked(values[HEADERS.Teachers.indexOf('is_blocked')])) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Akun guru dinonaktifkan oleh admin.' };
+  }
+  var currentVersion = String(values[HEADERS.Teachers.indexOf('session_version')] || '1');
+  if (String(session.session_version) !== currentVersion) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Sesi telah dicabut oleh admin. Silakan login kembali.' };
+  }
+  var activeUntil = values[HEADERS.Teachers.indexOf('aktif_sampai')];
+  if (activeUntil && new Date(activeUntil).getTime() < Date.now()) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Masa aktif akun telah berakhir. Silakan hubungi admin.' };
+  }
+  return null;
+}
+
+function getClassTeacherSessionError(classId, teacherId, token) {
+  var sheet = getSheet(SH.CLASSES);
+  var row = findRowIndex(sheet, 'id', classId);
+  if (row < 0) return null;
+
+  var teacherColumn = HEADERS.Classes.indexOf('teacher_id') + 1;
+  var classTeacherId = String(sheet.getRange(row, teacherColumn).getValue() || '').trim();
+  teacherId = String(teacherId || '').trim();
+  if (!teacherId || teacherId !== classTeacherId) {
+    return { ok: false, code: 'SESSION_REVOKED', message: 'Sesi guru tidak valid untuk kelas ini.' };
+  }
+  return getTeacherSessionError(teacherId, token);
 }
 
 // ==================== PAKET SOAL (XML) ====================
@@ -1276,9 +1391,12 @@ function handleGetPackagesForTeacher(p) {
   var teacherId = String(p.teacher_id || '').trim();
   if (teacherId) {
     var tSheet = getSheet(SH.TEACHERS);
-    if (findRowIndex(tSheet, 'id', teacherId) < 0) {
+    var teacherRow = findRowIndex(tSheet, 'id', teacherId);
+    if (teacherRow < 0) {
       return { ok: false, message: 'Guru tidak ditemukan.' };
     }
+    var sessionError = getTeacherSessionError(teacherId, p.preview_token);
+    if (sessionError) return sessionError;
   }
 
   var sheet = getSheet(SH.PACKAGES);
@@ -1312,7 +1430,11 @@ function handleGetPackagePreview(p) {
 
   if (!paketId) return { ok: false, message: 'paket_id wajib.' };
   if (!isTeacherPreviewSessionValid(teacherId, previewToken)) {
-    return { ok: false, message: 'Sesi guru tidak valid atau kedaluwarsa. Silakan login kembali.' };
+    return {
+      ok: false,
+      code: 'SESSION_REVOKED',
+      message: 'Sesi guru tidak valid atau kedaluwarsa. Silakan login kembali.'
+    };
   }
 
   var paket = getPaketSoal(paketId);

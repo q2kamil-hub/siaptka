@@ -21,9 +21,10 @@
  *  v9 — guru: preview paket soal (khusus guru) + ringkasan konfigurasi kelas
  *  v10 — guru: toggle buka/tutup di kartu kelas + perapian tata letak responsif
  *  v11 — index: PWA gate selalu memberi instruksi dan tidak memakai penanda install localStorage
+ *  v12 — admin: blokir guru + force logout; guru: validasi sesi server
  */
 
-const CACHE_VERSION = 'siaptka-v11';
+const CACHE_VERSION = 'siaptka-v12';
 const APP_SHELL = [
   './index.html',
   './',

@@ -665,6 +665,13 @@ function showApp() {
   document.getElementById('greeting').textContent = 'Selamat datang, ' + (state.guru.nama || 'Guru') + '!';
 }
 
+window.addEventListener('siaptka:session-revoked', function () {
+  state.guru = null;
+  showAuth();
+  switchAuthTab('login');
+  document.getElementById('auth-msg').textContent = 'Sesi tidak valid atau telah dicabut. Silakan login kembali.';
+});
+
 // ==========================================
 // AUTH
 // ==========================================

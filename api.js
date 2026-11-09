@@ -47,6 +47,9 @@
 
       global[callbackName] = function (response) {
         cleanup();
+        if (response && response.code === 'SESSION_REVOKED') {
+          notifySessionRevoked();
+        }
         if (response && response.ok === false) {
           // Bukan error teknis — error bisnis (password salah, dll).
           // Tetap resolve agar halaman bisa tampilkan pesan dengan tenang.
@@ -102,6 +105,41 @@
 
   function clearSession() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+
+  function notifySessionRevoked() {
+    clearSession();
+    if (global.dispatchEvent && typeof global.Event === 'function') {
+      global.dispatchEvent(new global.Event('siaptka:session-revoked'));
+    }
+  }
+
+  function _teacherRequest(action, params) {
+    var session = getSession();
+    if (!session || !session.id || !session.preview_token) {
+      notifySessionRevoked();
+      return Promise.resolve({
+        ok: false,
+        code: 'SESSION_REVOKED',
+        message: 'Sesi guru tidak tersedia. Silakan login kembali.'
+      });
+    }
+
+    var securedParams = {};
+    Object.keys(params || {}).forEach(function (key) {
+      securedParams[key] = params[key];
+    });
+    if (securedParams.teacher_id && String(securedParams.teacher_id) !== String(session.id)) {
+      notifySessionRevoked();
+      return Promise.resolve({
+        ok: false,
+        code: 'SESSION_REVOKED',
+        message: 'Sesi guru tidak valid. Silakan login kembali.'
+      });
+    }
+    securedParams.teacher_id = session.id;
+    securedParams.preview_token = session.preview_token;
+    return _request(action, securedParams);
   }
 
   // ==========================================
@@ -160,7 +198,7 @@
      * @param {object} payload { teacher_id, nama_kelas, paket_id, durasi_menit, pin, acak, tampil_pembahasan }
      */
     createClass: function (payload) {
-      return _request('createClass', payload);
+      return _teacherRequest('createClass', payload);
     },
 
     /**
@@ -168,7 +206,7 @@
      * @param {string} teacherId
      */
     getMyClasses: function (teacherId) {
-      return _request('getMyClasses', { teacher_id: teacherId });
+      return _teacherRequest('getMyClasses', { teacher_id: teacherId });
     },
 
     /**
@@ -176,7 +214,7 @@
      * @param {string} classId
      */
     getClassDetail: function (classId) {
-      return _request('getClassDetail', { class_id: classId });
+      return _teacherRequest('getClassDetail', { class_id: classId });
     },
 
     /**
@@ -184,7 +222,7 @@
      * @param {string} classId
      */
     getClassAnalytics: function (classId) {
-      return _request('getClassAnalytics', { class_id: classId });
+      return _teacherRequest('getClassAnalytics', { class_id: classId });
     },
 
     /**
@@ -193,7 +231,7 @@
      * @param {boolean} tutup  true = tutup
      */
     setClassClosed: function (classId, tutup) {
-      return _request('setClassClosed', { class_id: classId, tutup: tutup ? '1' : '0' });
+      return _teacherRequest('setClassClosed', { class_id: classId, tutup: tutup ? '1' : '0' });
     },
 
     /****
@@ -203,7 +241,7 @@
      * @param {object} payload { nama_kelas, durasi_menit, acak (bool), tampil_pembahasan (bool) }
      */
     editClass: function (classId, payload) {
-      return _request('editClass', {
+      return _teacherRequest('editClass', {
         class_id: classId,
         nama_kelas: payload.nama_kelas,
         durasi_menit: payload.durasi_menit,
@@ -218,7 +256,7 @@
      * @param {string} classId
      */
     deleteClass: function (classId) {
-      return _request('deleteClass', { class_id: classId });
+      return _teacherRequest('deleteClass', { class_id: classId });
     },
 
     /****
@@ -227,7 +265,7 @@
      * @param {object} payload { teacher_id, nama, sekolah, password (opsional), current_password (wajib jika password diisi) }
      */
     updateTeacherProfile: function (payload) {
-      return _request('editTeacherProfile', payload);
+      return _teacherRequest('editTeacherProfile', payload);
     },
 
     // ---------- MURID ----------
@@ -277,10 +315,10 @@
 
     /**
      * Daftar paket soal aktif untuk dropdown di guru.html.
-     * @param {string} teacherId (opsional) — untuk validasi
+     * @param {string} teacherId — harus cocok dengan sesi guru yang tersimpan
      */
     getPackagesForTeacher: function (teacherId) {
-      return _request('getPackagesForTeacher', { teacher_id: teacherId || '' });
+      return _teacherRequest('getPackagesForTeacher', { teacher_id: teacherId || '' });
     },
 
     // ---------- PAKET PREVIEW (guru) ----------
@@ -294,13 +332,15 @@
     getPackagePreview: function (paketId, teacherId) {
       var session = getSession();
       if (!session || !session.id || session.id !== teacherId || !session.preview_token) {
+        notifySessionRevoked();
         return Promise.resolve({
           ok: false,
+          code: 'SESSION_REVOKED',
           message: 'Sesi guru tidak tersedia atau kedaluwarsa. Silakan keluar lalu login kembali.'
         });
       }
 
-      return _request('getPackagePreview', {
+      return _teacherRequest('getPackagePreview', {
         paket_id: paketId,
         teacher_id: teacherId,
         preview_token: session.preview_token
@@ -315,6 +355,21 @@
 
     adminListTeachers: function (token) {
       return _request('adminListTeachers', { token: token });
+    },
+
+    adminSetTeacherBlocked: function (token, teacherId, blocked) {
+      return _request('adminSetTeacherBlocked', {
+        token: token,
+        teacher_id: teacherId,
+        is_blocked: blocked ? '1' : '0'
+      });
+    },
+
+    adminForceLogoutTeacher: function (token, teacherId) {
+      return _request('adminForceLogoutTeacher', {
+        token: token,
+        teacher_id: teacherId
+      });
     },
 
     adminListPackages: function (token) {

@@ -5,8 +5,9 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 ```markdown
 # 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
 
-> **Status**: Versi 1.8.5 ✅ (Penyempurnaan Dashboard Guru: Preview Paket Soal + Kunci, Toggle Buka/Tutup di Kartu, Ringkasan Konfigurasi Kelas, Tata Letak Responsif) — di atas basis Versi 1.8
-> **Terakhir diperbarui**: Setelah implementasi Versi 1.8.5 dan perbaikan PWA gate di `index.html` (Service Worker `siaptka-v11`).
+> **Status rilis terakhir**: Versi 1.8.5 ✅
+> **Pengembangan saat ini**: Versi 1.9 — blokir/nonaktifkan guru dan force logout telah diimplementasikan; grafik tren aktivasi masih direncanakan.
+> **Terakhir diperbarui**: Implementasi manajemen sesi admin Versi 1.9 (`siaptka-v12`).
 > **Tahap Selanjutnya**: Versi 1.9 (Manajemen Lanjutan Admin)
 
 ---
@@ -60,12 +61,16 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 - **Guru**: Login (SHA-256 + salt), Aktivasi (kode 1 tahun), Pembuatan Kelas (validasi paket), **Edit Kelas** (nama, durasi, acak, tampil pembahasan — diblokir jika sudah ada submit), **Hapus Kelas** (soft delete → status `deleted`, data murid & nilai aman).
 - **Murid**: Join (validasi PIN & kelas, ditolak jika kelas `deleted`), Ambil Soal (acak deterministik), Submit (pencocokan & pembahasan).
 - **Admin**: Generate Aktivasi, Daftar Guru, Kelola Paket (Create/Toggle/Delete), Statistik, Reset Aktif, Unduh Kode Unused.
+- **Blokir Guru (Versi 1.9)**: Admin dapat memblokir/membuka blokir akun. Perubahan status membatalkan sesi aktif; login dan endpoint guru ditolak saat akun diblokir. Kelas serta akses murid yang sudah berjalan tetap tersedia.
+- **Force Logout (Versi 1.9)**: Admin dapat mencabut seluruh sesi guru. Setiap endpoint guru memvalidasi token sesi dan versi sesi yang disimpan di sheet; perangkat dipaksa kembali ke login saat permintaan berikutnya.
+- **Migrasi kolom Guru**: `initSheet()` menambahkan kolom `is_blocked` dan `session_version` ke tab `Teachers` yang sudah ada; baris lama dianggap tidak diblokir dan menggunakan versi sesi `1`.
 - **Sinkronisasi Tipe Data**: Menggunakan `String(cls.tampil_pembahasan) === '1'` untuk mengatasi konversi angka/teks dari Google Sheets.
 - **Scoring**: `hitungSkorSoal` mendukung penilaian parsial untuk `pg_kompleks` dan `memasangkan`.
 
 ### Konfigurasi GAS
 - **Deploy**: Web App → Execute as **Me**, Access **Anyone**.
 - Selalu pilih **"New version"** saat mengubah `Code.gs`.
+- Deploy backend dan frontend Versi 1.9 berdekatan: API guru kini mengirim token sesi dan backend menolaknya jika sesi dicabut. Service Worker `siaptka-v12` memuat ulang aset frontend.
 - **Pembacaan XML**: Pastikan `DriveApp` membaca file dengan encoding **UTF-8** (`getDataAsString('UTF-8')`) agar simbol matematika (÷, ×, √) tidak rusak menjadi karakter `�`.
 - Variabel kunci:
   ```javascript
@@ -80,7 +85,7 @@ Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda
 
 | Tab | Kolom |
 |---|---|
-| `Teachers` | id, email, password_hash, salt, nama, sekolah, aktif_sampai, created_at |
+| `Teachers` | id, email, password_hash, salt, nama, sekolah, aktif_sampai, created_at, is_blocked (`1`/`0`), session_version |
 | `Activations` | kode, dipakai_oleh, tanggal_pakai, status (`unused`/`used`) |
 | `Classes` | id, teacher_id, nama_kelas, paket_id, kode_kelas, pin, durasi_menit, buka, tutup, acak, tampil_pembahasan, status, created_at |
 | `Students` | id, class_id, nama, absen, waktu_masuk |
@@ -186,12 +191,12 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
 - [x] Halaman indeks selalu menampilkan pesan saat dibuka dari browser biasa, termasuk jika browser tidak mendukung prompt instalasi.
 - [x] Pilihan peran hanya dibuka berdasarkan mode standalone; penanda `localStorage` tidak lagi dapat membuka akses setelah aplikasi dihapus.
 - [x] Petunjuk instalasi dibedakan untuk iOS/Safari, Android, dan browser desktop.
-- [x] Kegagalan pendaftaran Service Worker ditampilkan dengan pesan yang jelas; cache dinaikkan ke `siaptka-v11`.
+- [x] Kegagalan pendaftaran Service Worker ditampilkan dengan pesan yang jelas; cache kini `siaptka-v12` untuk memuat perubahan manajemen sesi.
 
 ### Versi 1.9 — Manajemen Lanjutan Admin
 Fitur kontrol untuk Anda sebagai pemilik aplikasi.
-- [ ] Blokir/Nonaktifkan Guru: Tambah kolom `is_blocked` di database, dan tombol aksi di `admin.html`.
-- [ ] Force Logout: Mekanisme untuk memaksa guru logout dari perangkat lain.
+- [x] Blokir/Nonaktifkan Guru: Tambah kolom `is_blocked`, tombol blokir/buka blokir pada `admin.html`, dan penolakan akses endpoint guru saat akun diblokir. Perubahan status mencabut sesi guru; kelas yang sudah ada dan akses murid tidak dinonaktifkan.
+- [x] Force Logout: Admin menaikkan versi sesi guru; semua token lama ditolak oleh endpoint guru dan browser kembali ke layar login ketika melakukan permintaan berikutnya.
 - [ ] (Opsional) Grafik tren aktivasi kode.
 
 ### Versi 2.0 — Utilitas & Optimasi (Rilis Final)
@@ -205,12 +210,12 @@ Penyempurnaan teknis sebelum rilis besar.
 ## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
 
 Untuk melanjutkan ke Versi 1.9, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend lengkap versi 1.8 — scoring untuk tipe baru via `hitungSkorSoal`).
-2. **`api.js`** (Lapisan API lengkap versi 1.8 — tidak ada perubahan).
+1. **`Code.gs`** (Backend versi 1.9 — blokir guru, validasi sesi, dan force logout).
+2. **`api.js`** (Lapisan API versi 1.9 dengan token sesi guru).
 3. **`guru.html`** (Frontend guru).
 4. **`murid.html`** (Frontend murid dengan dukungan tipe soal baru + Auto-save + Review Jawaban + Render `<sup>`/`<sub>`).
 5. **`admin.html`** (Panel admin versi 1.6).
-6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v11`).
+6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v12`).
 7. **`soal.xml`** (Contoh tipe soal baru: uraian, benar_salah, pg_kompleks, memasangkan, beserta notasi `<sup>`).
 8. **File ini (`Catatan_Konfigurasi.md`)**.
 9. **`Konfigurasi_Authoring_Soal.md`** (Panduan prompt AI untuk membuat soal TKA).

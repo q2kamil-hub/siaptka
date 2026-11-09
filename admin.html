@@ -114,6 +114,7 @@
     }
     .pill-active { background: #dcfce7; color: #166534; }
     .pill-inactive { background: #fee2e2; color: #991b1b; }
+    .pill-blocked { background: #e2e8f0; color: #475569; }
     .pill-unused { background: #fef3c7; color: #92400e; }
     .pill-used { background: #e2e8f0; color: #475569; }
 
@@ -200,7 +201,7 @@
     <!-- TABS -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('aktivasi')" id="tab-aktivasi">Aktivasi</button>
-      <button class="tab" onclick="switchTab('guru')" id="tab-guru">Guru</button>
+      <button class="tab" onclick="switchTab('guru')" id="tab-guru">Guru · v1.9</button>
       <button class="tab" onclick="switchTab('paket')" id="tab-paket">Paket Soal</button>
     </div>
 
@@ -229,7 +230,10 @@
     <div id="panel-guru" class="hidden">
       <div class="panel" style="padding:16px 20px">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px">
-          <h3 style="margin:0">Daftar Guru</h3>
+          <div>
+            <h3 style="margin:0">Daftar Guru — Manajemen v1.9</h3>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Blokir atau buka blokir akun guru dari kolom Aksi.</div>
+          </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap">
             <button class="btn btn-outline btn-sm" onclick="exportTeachersCsv()">📥 Ekspor CSV</button>
             <button class="btn btn-outline btn-sm" onclick="exportUnusedCodesCsv()">📥 Unduh Kode Unused</button>
@@ -478,9 +482,15 @@ function renderTeachers() {
     '</tr></thead><tbody>';
   state.teachers.forEach(function (t, i) {
     var aktif = t.aktif_sampai && new Date(t.aktif_sampai).getTime() > now;
-    var statusPill = aktif
-      ? '<span class="pill pill-active">Aktif</span>'
-      : '<span class="pill pill-inactive">Expired</span>';
+    var blocked = String(t.is_blocked) === '1' || String(t.is_blocked).toLowerCase() === 'true';
+    var statusPill = blocked
+      ? '<span class="pill pill-blocked">Diblokir</span>'
+      : (aktif
+        ? '<span class="pill pill-active">Aktif</span>'
+        : '<span class="pill pill-inactive">Expired</span>');
+    var blockButton = blocked
+      ? '<button class="btn btn-outline btn-sm" onclick="setTeacherBlocked(\'' + esc(t.id) + '\', false)">Buka blokir</button>'
+      : '<button class="btn btn-danger btn-sm" onclick="setTeacherBlocked(\'' + esc(t.id) + '\', true)">Blokir</button>';
     var tanggal = t.aktif_sampai ? formatDate(t.aktif_sampai) : '—';
     html += '<tr>';
     html += '<td>' + (i + 1) + '</td>';
@@ -489,7 +499,9 @@ function renderTeachers() {
     html += '<td>' + esc(t.sekolah || '—') + '</td>';
     html += '<td>' + statusPill + '</td>';
     html += '<td>' + tanggal + '</td>';
-    html += '<td><button class="btn btn-outline btn-sm" onclick="resetTeacherActive(\'' + t.id + '\',\'' + esc(t.nama).replace(/'/g, "\\'") + '\')">Reset +365 hari</button></td>';
+    html += '<td><div style="display:flex;gap:6px;flex-wrap:wrap">' + blockButton +
+      '<button class="btn btn-outline btn-sm" onclick="forceLogoutTeacher(\'' + esc(t.id) + '\')">Force logout</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="resetTeacherActive(\'' + t.id + '\',\'' + esc(t.nama).replace(/'/g, "\\'") + '\')">Reset +365 hari</button></div></td>';
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -498,9 +510,11 @@ function renderTeachers() {
 
 function exportTeachersCsv() {
   if (!state.teachers.length) { toast('Belum ada data guru.', 'error'); return; }
-  var rows = [['Nama', 'Email', 'Sekolah', 'Aktif Sampai']];
+  var rows = [['Nama', 'Email', 'Sekolah', 'Status Akun', 'Aktif Sampai']];
   state.teachers.forEach(function (t) {
-    rows.push([t.nama, t.email, t.sekolah || '', t.aktif_sampai || '']);
+    var blocked = String(t.is_blocked) === '1' || String(t.is_blocked).toLowerCase() === 'true';
+    var aktif = t.aktif_sampai && new Date(t.aktif_sampai).getTime() > Date.now();
+    rows.push([t.nama, t.email, t.sekolah || '', blocked ? 'Diblokir' : (aktif ? 'Aktif' : 'Expired'), t.aktif_sampai || '']);
   });
   var csv = rows.map(function (r) {
     return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
@@ -525,6 +539,46 @@ function resetTeacherActive(teacherId, nama) {
       loadStats();
     } else {
       toast(res.message || 'Gagal reset.', 'error');
+    }
+  }).catch(function (err) { toast(API.friendlyError(err), 'error'); });
+}
+
+function setTeacherBlocked(teacherId, blocked) {
+  var teacherName = 'akun guru ini';
+  for (var i = 0; i < state.teachers.length; i++) {
+    if (String(state.teachers[i].id) === String(teacherId)) {
+      teacherName = state.teachers[i].nama || teacherName;
+      break;
+    }
+  }
+  var action = blocked ? 'memblokir' : 'membuka blokir';
+  if (!confirm('Yakin ingin ' + action + ' ' + teacherName + '?')) return;
+
+  API.adminSetTeacherBlocked(state.token, teacherId, blocked).then(function (res) {
+    if (res.ok) {
+      toast(blocked ? 'Akun guru berhasil diblokir.' : 'Blokir akun guru berhasil dibuka.', 'success');
+      loadTeachers();
+    } else {
+      toast(res.message || 'Gagal mengubah status akun guru.', 'error');
+    }
+  }).catch(function (err) { toast(API.friendlyError(err), 'error'); });
+}
+
+function forceLogoutTeacher(teacherId) {
+  var teacherName = 'akun guru ini';
+  for (var i = 0; i < state.teachers.length; i++) {
+    if (String(state.teachers[i].id) === String(teacherId)) {
+      teacherName = state.teachers[i].nama || teacherName;
+      break;
+    }
+  }
+  if (!confirm('Cabut semua sesi aktif ' + teacherName + '? Guru akan diminta login kembali pada permintaan berikutnya.')) return;
+
+  API.adminForceLogoutTeacher(state.token, teacherId).then(function (res) {
+    if (res.ok) {
+      toast('Sesi aktif guru berhasil dicabut.', 'success');
+    } else {
+      toast(res.message || 'Gagal mencabut sesi guru.', 'error');
     }
   }).catch(function (err) { toast(API.friendlyError(err), 'error'); });
 }
