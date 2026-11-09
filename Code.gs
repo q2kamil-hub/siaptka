@@ -503,9 +503,10 @@ function handleGetClassAnalytics(p) {
     Object.keys(jawaban).forEach(function (soalId) {
       var q = soalById[soalId];
       if (!q) return;
-      var userJawab = String(jawaban[soalId] || '').trim().toLowerCase();
-      var kunci = String(q.jawaban || '').trim().toLowerCase();
-      var benar = userJawab === kunci;
+      var userRaw = jawaban[soalId];
+      var earned = hitungSkorSoal(q, userRaw);
+      var benar = earned > 0;
+      var userJawab = String(userRaw == null ? '' : userRaw);
       if (perQuestionAgg[soalId]) {
         if (benar) perQuestionAgg[soalId].benar++;
         else perQuestionAgg[soalId].salah++;
@@ -798,6 +799,7 @@ function handleGetQuestions(p) {
       tipe: s.tipe,
       pertanyaan: s.pertanyaan,
       pilihan: s.pilihan || [],
+      pasangan: s.pasangan || [],
       skor: s.skor
       // jawaban SENGAJA tidak dikirim
     };
@@ -863,15 +865,13 @@ function handleSubmitResult(p) {
   var totalSkor = 0;
   var detail = [];
 
-  // Hitung skor: hanya soal yang dikenal paket & nilainya cocok.
+  // Hitung skor per soal (logika penilaian ada di hitungSkorSoal, di server).
   Object.keys(jawaban).forEach(function (soalId) {
     var q = soalById[soalId];
     if (!q) return;
-    var userJawab = String(jawaban[soalId] == null ? '' : jawaban[soalId]).trim();
-    var kunci = String(q.jawaban || '').trim();
-    if (userJawab !== '' && userJawab.toLowerCase() === kunci.toLowerCase()) {
-      totalSkor += parseInt(q.skor, 10) || 0;
-    }
+    var userRaw = jawaban[soalId];
+    var earned = hitungSkorSoal(q, userRaw);
+    totalSkor += earned;
   });
 
   // ---- Pembahasan (opsional, hanya jika kelas mengaktifkan tampil_pembahasan) ----
@@ -886,20 +886,24 @@ function handleSubmitResult(p) {
     urutanSoal.forEach(function (q) {
       var soalId = String(q.id);
       var raw = jawaban[soalId];
-      var userJawab = String(raw == null ? '' : raw).trim();
+      var userJawab = String(raw == null ? '' : raw);
       var kunci = String(q.jawaban || '').trim();
-      var dijawab = userJawab !== '';
+      var dijawab = isAnswered(q.tipe, raw);
+
+      var earned = hitungSkorSoal(q, raw);
 
       detail.push({
         soal_id: soalId,
-        tipe: q.tipe,                       // 'pg' | 'isian'
+        tipe: q.tipe,
         pertanyaan: q.pertanyaan,
-        pilihan: q.pilihan || [],           // BARU: semua opsi (A, B, C, D) dari XML
+        pilihan: q.pilihan || [],
+        pasangan: q.pasangan || [],
         jawaban_user: userJawab,
         kunci: kunci,
-        benar: dijawab && userJawab.toLowerCase() === kunci.toLowerCase(),
-        dijawab: dijawab,                   // BARU: bedakan "tidak dijawab" vs "salah"
-        skor: parseInt(q.skor, 10) || 0
+        benar: earned > 0,
+        dijawab: dijawab,
+        skor: parseInt(q.skor, 10) || 0,
+        skor_diperoleh: earned
       });
     });
   }
@@ -1021,12 +1025,22 @@ function parseSoalXml(xmlText) {
     var pertanyaan = '';
     var pilihan = [];
     var jawaban = '';
+    var pasangan = [];
 
     el.getChildren().forEach(function (child) {
       var n = child.getName();
       if (n === 'pertanyaan') pertanyaan = child.getText();
       else if (n === 'pilihan') pilihan.push(child.getText().trim());
       else if (n === 'jawaban') jawaban = child.getText().trim();
+      else if (n === 'pasangan') {
+        var kiri = '', kanan = '';
+        child.getChildren().forEach(function (c) {
+          var cn = c.getName();
+          if (cn === 'kiri') kiri = c.getText().trim();
+          else if (cn === 'kanan') kanan = c.getText().trim();
+        });
+        pasangan.push({ kiri: kiri, kanan: kanan });
+      }
     });
 
     list.push({
@@ -1035,10 +1049,113 @@ function parseSoalXml(xmlText) {
       pertanyaan: pertanyaan,
       pilihan: pilihan,
       jawaban: jawaban,
+      pasangan: pasangan,
       skor: skor
     });
   });
   return list;
+}
+
+/** Cek apakah jawaban pengguna sudah diisi (termasuk format terstruktur). */
+function isAnswered(tipe, raw) {
+  if (raw == null) return false;
+  if (Array.isArray(raw)) return raw.some(function (v) { return String(v).trim() !== ''; });
+  if (typeof raw === 'object' && raw !== null) {
+    return Object.keys(raw).some(function (k) { return String(raw[k]).trim() !== ''; });
+  }
+  return String(raw).trim() !== '';
+}
+
+/**
+ * Hitung skor untuk satu soal berdasarkan tipe.
+ * Semua logika di server; kunci jawaban tidak pernah dikirim ke browser murid.
+ * @param {object} q - {tipe, jawaban, skor, pasangan}
+ * @param {*} userRaw - jawaban mentah dari client (string/array/object)
+ * @returns {number} skor yang diperoleh (0..skor)
+ */
+function hitungSkorSoal(q, userRaw) {
+  var tipe = String(q.tipe || 'pg').toLowerCase();
+  var skorMax = parseInt(q.skor, 10) || 0;
+  var kunci = String(q.jawaban || '').trim();
+
+  // 1) Uraian: dikumpulkan sebagai teks, tidak di-auto-grade (skor 0)
+  if (tipe === 'uraian') return 0;
+
+  // 2) Benar/salah
+  if (tipe === 'benar_salah') {
+    var u = String(userRaw).trim().toLowerCase();
+    var k = kunci.toLowerCase();
+    if (u === 'benar' || u === 'salah') {
+      return (u === k) ? skorMax : 0;
+    }
+    return 0;
+  }
+
+  // 3) PG tunggal & isian (perilaku lama, tidak diubah)
+  if (tipe === 'pg' || tipe === 'isian') {
+    var u = String(userRaw).trim();
+    if (u !== '' && u.toLowerCase() === kunci.toLowerCase()) {
+      return skorMax;
+    }
+    return 0;
+  }
+
+  // 4) Pilihan ganda kompleks: kunci = "B,D" (daftar huruf)
+  if (tipe === 'pg_kompleks') {
+    var kunciList = kunci.split(',').map(function (x) { return String(x).trim().toUpperCase(); }).filter(function (x) { return x !== ''; });
+    if (kunciList.length === 0) return 0;
+
+    var userList;
+    if (Array.isArray(userRaw)) {
+      userList = userRaw.map(function (x) { return String(x).trim().toUpperCase(); });
+    } else {
+      userList = String(userRaw).split(',').map(function (x) { return String(x).trim().toUpperCase(); }).filter(function (x) { return x !== ''; });
+    }
+
+    var perKunci = skorMax / kunciList.length;
+    var earned = 0;
+    userList.forEach(function (u) {
+      if (kunciList.indexOf(u) >= 0) earned += perKunci;
+    });
+    // Pilihan salah tidak menambah atau mengurangi skor; batas per soal tidak terlampaui.
+    return Math.min(earned, skorMax);
+  }
+
+  // 5) Memasangkan: kunci = "1-A,2-B,3-C" (indeks kiri -> huruf kanan)
+  if (tipe === 'memasangkan') {
+    var kunciMap = {};
+    kunci.split(',').forEach(function (pair) {
+      var parts = pair.split('-');
+      if (parts.length === 2) {
+        kunciMap[String(parts[0]).trim()] = String(parts[1]).trim().toUpperCase();
+      }
+    });
+    var kunciKeys = Object.keys(kunciMap);
+    if (kunciKeys.length === 0) return 0;
+
+    var userMap;
+    if (typeof userRaw === 'object' && userRaw !== null && !Array.isArray(userRaw)) {
+      userMap = userRaw;
+    } else {
+      userMap = {};
+      String(userRaw).split(',').forEach(function (pair) {
+        var parts = pair.split('-');
+        if (parts.length === 2) {
+          userMap[String(parts[0]).trim()] = String(parts[1]).trim().toUpperCase();
+        }
+      });
+    }
+
+    var perPasangan = skorMax / kunciKeys.length;
+    var earned = 0;
+    kunciKeys.forEach(function (k) {
+      var uVal = String(userMap[k] == null ? '' : userMap[k]).trim().toUpperCase();
+      if (uVal !== '' && uVal === kunciMap[k]) earned += perPasangan;
+    });
+    return Math.min(earned, skorMax);
+  }
+
+  return 0;
 }
 
 // ==================== UTIL: SHUFFLE DETERMINISTIK ====================

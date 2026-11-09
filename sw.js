@@ -17,9 +17,10 @@
  *  v5 — tambah admin.html (Fase 3)
  *  v6 — tambah head.js (Fase 4: favicon terpusat)
  *  v7 — murid: auto-save jawaban (localStorage) + review opsi di pembahasan
+ *  v8 — murid: dukungan tipe soal baru (uraian, benar_salah, pg_kompleks, memasangkan)
  */
 
-const CACHE_VERSION = 'siaptka-v7';
+const CACHE_VERSION = 'siaptka-v9';
 const APP_SHELL = [
   './',
   './',

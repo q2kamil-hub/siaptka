@@ -154,6 +154,53 @@
     }
     .isian-input:focus { border-color: var(--primary-light); outline: none; }
 
+    /* uraian: teks panjang */
+    .uraian-input {
+      width: 100%; min-height: 140px; padding: 14px 16px;
+      border: 2px solid var(--border); border-radius: 12px;
+      font-family: inherit; font-size: 15px; resize: vertical;
+    }
+    .uraian-input:focus { border-color: var(--primary-light); outline: none; }
+
+    /* benar/salah: toggle dua tombol */
+    .bs-group { display: flex; gap: 10px; }
+    .bs-btn {
+      flex: 1; padding: 14px 16px; border: 2px solid var(--border);
+      border-radius: 12px; background: white; cursor: pointer;
+      font-size: 16px; font-weight: 600; transition: border-color .15s, background .15s, color .15s;
+    }
+    .bs-btn:hover { border-color: var(--primary-light); }
+    .bs-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
+
+    /* pg_kompleks: checkbox per opsi */
+    .cb-pilihan {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px; margin-bottom: 10px;
+      border: 2px solid var(--border); border-radius: 12px;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .cb-pilihan:hover { border-color: var(--primary-light); background: #f8fafc; }
+    .cb-pilihan input { margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0; }
+    .cb-pilihan.checked { border-color: var(--primary); background: #eff6ff; }
+    .cb-pilihan .cb-letter {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+      background: #f1f5f9; color: var(--muted);
+      display: grid; place-items: center; font-weight: 700; font-size: 13px;
+    }
+    .cb-pilihan.checked .cb-letter { background: var(--primary); color: white; }
+
+    /* memasangkan: dua kolom kiri/kanan */
+    .match-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .match-col { display: flex; flex-direction: column; gap: 8px; }
+    .match-item {
+      padding: 10px 14px; border: 2px solid var(--border); border-radius: 10px;
+      font-size: 15px; cursor: pointer; user-select: none;
+      background: white; transition: border-color .15s;
+    }
+    .match-item:hover { border-color: var(--primary-light); }
+    .match-item.selected { border-color: var(--primary); background: #eff6ff; }
+    .match-item.kiri { text-align: right; font-weight: 600; }
+
     /* ===== NAV ===== */
     .nav-grid {
       display: flex; flex-wrap: wrap; gap: 6px;
@@ -218,7 +265,7 @@
     #toast.error { background: var(--danger); }
     #toast.success { background: var(--success); }
 
-        /* ===== PEMBAHASAN ===== */
+    /* ===== PEMBAHASAN ===== */
     .pembahasan-section { margin-top: 24px; }
     .pembahasan-title {
       font-size: 16px; font-weight: 800; margin-bottom: 12px;
@@ -464,8 +511,10 @@ function restoreDraft() {
     Object.keys(d.answers).forEach(function (soalId) {
       if (!validIds[soalId]) return;              // soal sudah tidak ada di paket
       var v = d.answers[soalId];
-      if (v == null || String(v).trim() === '') return;
-      state.answers[soalId] = String(v);
+      if (v == null) return;
+      if (typeof v === 'string' && v.trim() === '') return;
+      // Simpan utk struktur (array/object) atau string as-is
+      state.answers[soalId] = v;
       restored++;
     });
   }
@@ -670,45 +719,154 @@ function renderSoal() {
   var html = '';
   html += '<div class="soal-card">';
   html += '  <span class="soal-num">Soal ' + (idx + 1) + ' dari ' + total + '</span>';
-  html += '  <div class="soal-text">' + esc(q.pertanyaan) + '</div>';
+  html += '  <div class="soal-text">' + rich(q.pertanyaan) + '</div>';
 
-  if (q.tipe === 'pg' && q.pilihan && q.pilihan.length) {
+  var tipe = q.tipe || 'pg';
+  var pasangan = q.pasangan || [];
+
+  if (tipe === 'pg' && q.pilihan && q.pilihan.length) {
     q.pilihan.forEach(function (p) {
       var letter = String(p).trim().charAt(0);
       var selected = (userAns === letter) ? ' selected' : '';
       html += '<label class="pilihan' + selected + '" data-letter="' + esc(letter) + '">';
       html += '  <span class="letter">' + esc(letter) + '</span>';
-      html += '  <span>' + esc(p) + '</span>';
+      html += '  <span>' + rich(p) + '</span>';
       html += '</label>';
     });
+  } else if (tipe === 'pg_kompleks' && q.pilihan && q.pilihan.length) {
+    var userArr = Array.isArray(userAns) ? userAns : (String(userAns).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; }));
+    q.pilihan.forEach(function (p) {
+      var letter = String(p).trim().charAt(0);
+      var checked = userArr.indexOf(letter) >= 0 ? 'checked' : '';
+      html += '<label class="cb-pilihan ' + checked + '" data-letter="' + esc(letter) + '">';
+      html += '  <input type="checkbox" value="' + esc(letter) + '" ' + checked + '>';
+      html += '  <span class="cb-letter">' + esc(letter) + '</span>';
+      html += '  <span>' + rich(p) + '</span>';
+      html += '</label>';
+    });
+  } else if (tipe === 'benar_salah') {
+    var selB = (userAns === 'benar') ? ' active' : '';
+    var selS = (userAns === 'salah') ? ' active' : '';
+    html += '<div class="bs-group">';
+    html += '  <button type="button" class="bs-btn' + selB + '" data-val="benar">Benar</button>';
+    html += '  <button type="button" class="bs-btn' + selS + '" data-val="salah">Salah</button>';
+    html += '</div>';
+  } else if (tipe === 'memasangkan' && pasangan && pasangan.length) {
+    var matchState = state.answers[q.id];
+    if (!matchState || typeof matchState !== 'object') matchState = {};
+    html += '<div class="match-wrap">';
+    html += '  <div class="match-col">';
+    pasangan.forEach(function (pair, i) {
+      var chosen = matchState[String(i)] || '';
+      var sel = (chosen !== '') ? ' selected' : '';
+      html += '    <div class="match-item kiri' + sel + '" data-idx="' + esc(i) + '">' + rich(pair.kiri) + '</div>';
+    });
+    html += '  </div>';
+    html += '  <div class="match-col">';
+    pasangan.forEach(function (pair, j) {
+      var chosen = matchState[String(j)] || '';
+      var sel = (chosen !== '') ? ' selected' : '';
+      html += '    <div class="match-item' + sel + '" data-idx="' + esc(j) + '">' + rich(pair.kanan) + '</div>';
+    });
+    html += '  </div>';
+    html += '</div>';
+    html += '<div style="margin-top:8px; font-size:12px; color:var(--muted); text-align:center">Klik satu item di kiri lalu satu di kanan untuk pasangkan.</div>';
   } else {
-    html += '<input type="text" class="isian-input" id="isian-' + q.id + '" ' +
-            'placeholder="Ketik jawaban..." value="' + esc(userAns) + '">';
+    var isTextarea = (tipe === 'uraian');
+    if (isTextarea) {
+      html += '<textarea class="uraian-input" id="isian-' + q.id + '" placeholder="Ketik jawaban Anda...">' + esc(userAns) + '</textarea>';
+    } else {
+      html += '<input type="text" class="isian-input" id="isian-' + q.id + '" ' +
+              'placeholder="Ketik jawaban..." value="' + esc(userAns) + '">';
+    }
   }
 
   html += '</div>';
   document.getElementById('soal-container').innerHTML = html;
 
-  // Bind pilihan klik
-  var pilihanEls = document.querySelectorAll('#soal-container .pilihan');
-  pilihanEls.forEach(function (el) {
+  var container = document.getElementById('soal-container');
+
+  // PG tunggal
+  container.querySelectorAll('.pilihan').forEach(function (el) {
     el.addEventListener('click', function () {
       var letter = el.getAttribute('data-letter');
-      pilihanEls.forEach(function (x) { x.classList.remove('selected'); });
+      container.querySelectorAll('.pilihan').forEach(function (x) { x.classList.remove('selected'); });
       el.classList.add('selected');
       state.answers[q.id] = letter;
-      saveDraft();                 // AUTO-SAVE: pilihan = klik diskrit, simpan langsung
+      saveDraft();
       updateNav();
       updateProgress();
     });
   });
 
-  // Bind isian
-  var isian = document.getElementById('isian-' + q.id);
-  if (isian) {
-    isian.addEventListener('input', function () {
-      state.answers[q.id] = isian.value;
-      scheduleDraftSave();         // AUTO-SAVE: debounce agar tidak menulis tiap ketukan
+  // PG kompleks
+  container.querySelectorAll('.cb-pilihan').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var letter = el.getAttribute('data-letter');
+      var cb = el.querySelector('input[type="checkbox"]');
+      cb.checked = !cb.checked;
+      el.classList.toggle('checked', cb.checked);
+      var arr = state.answers[q.id];
+      if (!Array.isArray(arr)) arr = [];
+      var idx = arr.indexOf(letter);
+      if (cb.checked) { if (idx < 0) arr.push(letter); }
+      else { if (idx >= 0) arr.splice(idx, 1); }
+      state.answers[q.id] = arr;
+      saveDraft();
+      updateNav();
+      updateProgress();
+    });
+  });
+
+  // Benar/salah
+  container.querySelectorAll('.bs-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = btn.getAttribute('data-val');
+      container.querySelectorAll('.bs-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.answers[q.id] = val;
+      saveDraft();
+      updateNav();
+      updateProgress();
+    });
+  });
+
+  // Memasangkan
+  var matchSelected = { side: null, idx: null };
+  container.querySelectorAll('.match-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var side = el.classList.contains('kiri') ? 'kiri' : 'kanan';
+      var idx = el.getAttribute('data-idx');
+      if (matchSelected.side === side && matchSelected.idx === idx) {
+        el.classList.remove('selected');
+        matchSelected = { side: null, idx: null };
+        return;
+      }
+      if (matchSelected.side && matchSelected.side !== side) {
+        var kiriIdx = (matchSelected.side === 'kiri') ? matchSelected.idx : idx;
+        var kananIdx = (matchSelected.side === 'kanan') ? matchSelected.idx : idx;
+        var m = state.answers[q.id];
+        if (!m || typeof m !== 'object') m = {};
+        m[kiriIdx] = kananIdx;
+        state.answers[q.id] = m;
+        saveDraft();
+        renderSoal();
+        updateNav();
+        updateProgress();
+        return;
+      }
+      container.querySelectorAll('.match-item').forEach(function (x) { x.classList.remove('selected'); });
+      el.classList.add('selected');
+      matchSelected = { side: side, idx: idx };
+    });
+  });
+
+  // Isian / Uraian
+  var inputEl = document.getElementById('isian-' + q.id);
+  if (inputEl) {
+    inputEl.addEventListener('input', function () {
+      state.answers[q.id] = inputEl.value;
+      scheduleDraftSave();
       updateNav();
       updateProgress();
     });
@@ -728,11 +886,18 @@ function renderNav() {
   document.getElementById('nav-grid').innerHTML = html;
 }
 
+function isClientAnswered(v) {
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0;
+  return String(v).trim() !== '';
+}
+
 function updateNav() {
   document.querySelectorAll('#nav-grid .nav-num').forEach(function (btn) {
     var i = parseInt(btn.getAttribute('data-idx'), 10);
     var q = state.questions[i];
-    btn.classList.toggle('answered', !!state.answers[q.id]);
+    btn.classList.toggle('answered', isClientAnswered(state.answers[q.id]));
   });
 }
 
@@ -746,7 +911,7 @@ function updateNavActive() {
 function updateProgress() {
   var answered = 0;
   state.questions.forEach(function (q) {
-    if (state.answers[q.id] && String(state.answers[q.id]).trim() !== '') answered++;
+    if (isClientAnswered(state.answers[q.id])) answered++;
   });
   var pct = Math.round((answered / state.questions.length) * 100);
   document.getElementById('q-progress').style.width = pct + '%';
@@ -782,7 +947,11 @@ function prevSoal() {
 function countUnanswered() {
   var n = 0;
   state.questions.forEach(function (q) {
-    if (!state.answers[q.id] || String(state.answers[q.id]).trim() === '') n++;
+    var v = state.answers[q.id];
+    if (v == null) { n++; return; }
+    if (Array.isArray(v)) { if (v.length === 0) n++; return; }
+    if (typeof v === 'object' && v !== null) { if (Object.keys(v).length === 0) n++; return; }
+    if (String(v).trim() === '') n++;
   });
   return n;
 }
@@ -879,27 +1048,45 @@ function renderPembahasan(list) {
   var html = '<div class="pembahasan-title">📖 Pembahasan Jawaban</div>';
 
   list.forEach(function (item, i) {
+    var tipe = String(item.tipe || 'pg').toLowerCase();
     var benar = !!item.benar;
     var kunci = String(item.kunci == null ? '' : item.kunci).trim();
-    var user  = String(item.jawaban_user == null ? '' : item.jawaban_user).trim();
+    var user  = item.jawaban_user;
     var opsi  = (item.pilihan && item.pilihan.length) ? item.pilihan : [];
+    var pasangan = item.pasangan || [];
+    var earned = item.skor_diperoleh != null ? item.skor_diperoleh : (benar ? item.skor : 0);
+    var maks = item.skor || 0;
 
     html += '<div class="pembahasan-item ' + (benar ? 'benar' : 'salah') + '">';
-    html += '  <div class="pembahasan-q">' + (benar ? '✅' : '❌') + ' ' + (i + 1) + '. ' + esc(item.pertanyaan) + '</div>';
+    html += '  <div class="pembahasan-q">' + (benar ? '✅' : '❌') + ' ' + (i + 1) + '. ' + rich(item.pertanyaan) + '</div>';
+    html += '  <div class="pembahasan-skor">Skor: <b>' + earned + '/' + maks + '</b></div>';
 
-    if (opsi.length) {
-      // ---- PILIHAN GANDA: tampilkan semua opsi (A, B, C, D) ----
-      // hijau = kunci jawaban, merah = pilihan murid yang salah, netral = opsi lain
+    if (tipe === 'pg_kompleks') {
+      html += renderPgKompleks(kunci, user, opsi);
+    } else if (tipe === 'memasangkan') {
+      html += renderMatchPembahasan(kunci, user, pasangan);
+    } else if (tipe === 'benar_salah') {
+      var u = String(user).trim().toLowerCase();
+      var k = kunci.toLowerCase();
+      var cocok = (u === k);
+      html += '  <div class="pembahasan-row">';
+      html += '    <span class="label">Jawaban Anda</span>';
+      html += '    <span class="val ' + (cocok ? 'benar' : 'salah') + '">' + rich(u || '—') + '</span>';
+      html += '  </div>';
+      html += '  <div class="pembahasan-row">';
+      html += '    <span class="label">Kunci Jawaban</span>';
+      html += '    <span class="val benar">' + rich(kunci) + '</span>';
+      html += '  </div>';
+    } else if (opsi.length) {
       html += '  <div class="pembahasan-opsi-list">';
       opsi.forEach(function (p) {
         var letter = String(p).trim().charAt(0).toUpperCase();
         var isKunci = letter !== '' && letter === kunci.toUpperCase();
-        var isUser  = letter !== '' && letter === user.toUpperCase();
+        var isUser  = letter !== '' && letter === String(user).trim().toUpperCase();
         var cls = isKunci ? 'benar' : (isUser ? 'salah' : '');
-
         html += '<div class="pembahasan-opsi ' + cls + '">';
         html += '  <span class="letter">' + esc(letter) + '</span>';
-        html += '  <span class="opsi-text">' + esc(p) + '</span>';
+        html += '  <span class="opsi-text">' + rich(p) + '</span>';
         if (isKunci) {
           html += '<span class="opsi-tag tag-kunci">' + (isUser ? 'Jawaban Anda' : 'Kunci') + '</span>';
         } else if (isUser) {
@@ -908,19 +1095,22 @@ function renderPembahasan(list) {
         html += '</div>';
       });
       html += '  </div>';
-      if (!user) {
+      if (!String(user).trim()) {
         html += '  <div class="pembahasan-note">Anda tidak menjawab soal ini.</div>';
       }
     } else {
-      // ---- TIPE ISIAN (atau respons backend lama tanpa array pilihan) ----
       html += '  <div class="pembahasan-row">';
       html += '    <span class="label">Jawaban Anda</span>';
-      html += '    <span class="val ' + (benar ? 'benar' : 'salah') + '">' + esc(user || '—') + '</span>';
+      html += '    <span class="val ' + (benar ? 'benar' : 'salah') + '">' + rich(String(user == null ? '' : user) || '—') + '</span>';
       html += '  </div>';
-      html += '  <div class="pembahasan-row">';
-      html += '    <span class="label">Kunci Jawaban</span>';
-      html += '    <span class="val benar">' + esc(kunci) + '</span>';
-      html += '  </div>';
+      if (tipe !== 'uraian') {
+        html += '  <div class="pembahasan-row">';
+        html += '    <span class="label">Kunci Jawaban</span>';
+        html += '    <span class="val benar">' + rich(kunci) + '</span>';
+        html += '  </div>';
+      } else {
+        html += '  <div class="pembahasan-note">Penilaian uraian dilakukan secara manual di luar aplikasi.</div>';
+      }
     }
 
     html += '</div>';
@@ -930,14 +1120,99 @@ function renderPembahasan(list) {
   container.classList.remove('hidden');
 }
 
+function renderPgKompleks(kunci, user, opsi) {
+  var kunciList = kunci.split(',').map(function (x) { return String(x).trim().toUpperCase(); }).filter(function (x) { return x !== ''; });
+  var userArr = Array.isArray(user) ? user : (String(user).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; }));
+  var h = '  <div class="pembahasan-opsi-list">';
+  opsi.forEach(function (p) {
+    var letter = String(p).trim().charAt(0).toUpperCase();
+    var isKunci = kunciList.indexOf(letter) >= 0;
+    var isUser  = userArr.indexOf(letter) >= 0;
+    var cls = '';
+    if (isKunci && isUser) cls = 'benar';
+    else if (isKunci) cls = 'benar';
+    else if (isUser && !isKunci) cls = 'salah';
+    h += '<div class="pembahasan-opsi ' + cls + '">';
+    h += '  <span class="letter">' + esc(letter) + '</span>';
+    h += '  <span class="opsi-text">' + rich(p) + '</span>';
+    var tags = [];
+    if (isKunci) tags.push('Kunci');
+    if (isUser) tags.push('Jawaban Anda');
+    if (tags.length) {
+      h += '<span class="opsi-tag tag-' + (isKunci && isUser ? 'kunci' : 'anda') + '">' + tags.join(' / ') + '</span>';
+    }
+    h += '</div>';
+  });
+  h += '  </div>';
+  if (!userArr.length) {
+    h += '  <div class="pembahasan-note">Anda tidak menjawab soal ini.</div>';
+  }
+  return h;
+}
+
+function renderMatchPembahasan(kunci, user, pasangan) {
+  var kunciMap = {};
+  kunci.split(',').forEach(function (pair) {
+    var parts = pair.split('-');
+    if (parts.length === 2) kunciMap[String(parts[0]).trim()] = String(parts[1]).trim().toUpperCase();
+  });
+  var userMap = (typeof user === 'object' && user !== null && !Array.isArray(user)) ? user : {};
+  var pasIdx = Object.keys(kunciMap);
+  var h = '  <div class="match-wrap">';
+  h += '    <div class="match-col">';
+  pasIdx.forEach(function (k) {
+    var kananKunci = kunciMap[k];
+    var kananUser = userMap[k] || '';
+    var cocok = (String(kananUser).toUpperCase() === kananKunci);
+    var cls = cocok ? 'benar' : (kananUser !== '' ? 'salah' : '');
+    h += '      <div class="match-item kiri ' + cls + '" data-idx="' + esc(k) + '">' + rich(pairKiriText(pasangan, k)) + '</div>';
+  });
+  h += '    </div>';
+  h += '    <div class="match-col">';
+  pasIdx.forEach(function (k) {
+    var kananKunci = kunciMap[k];
+    var kananUser = userMap[k] || '';
+    var cocok = (String(kananUser).toUpperCase() === kananKunci);
+    var cls = cocok ? 'benar' : (kananUser !== '' ? 'salah' : '');
+    h += '      <div class="match-item ' + cls + '" data-idx="' + esc(k) + '">' + rich(pairKananText(pasangan, k)) + '</div>';
+  });
+  h += '    </div>';
+  h += '  </div>';
+  return h;
+}
+
+function pairKiriText(pasangan, idx) {
+  var p = pasangan[parseInt(idx, 10)];
+  return p ? p.kiri : '';
+}
+function pairKananText(pasangan, idx) {
+  var p = pasangan[parseInt(idx, 10)];
+  return p ? p.kanan : '';
+}
+
 // ==========================================
 // UTIL
 // ==========================================
+/** Escape penuh untuk konteks HTML (atribut & teks non-soal). */
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
+/**
+ * Escape penuh + pulihkan whitelist tag <sup> dan <sub>.
+ * Dipakai HANYA untuk konten soal (pertanyaan, pilihan, pasangan, pembahasan).
+ * Tag lain tetap di-escape sehingga aman dari XSS.
+ */
+function rich(s) {
+  return esc(s)
+    .replace(/&lt;sup&gt;/gi, '<sup>')
+    .replace(/&lt;\/sup&gt;/gi, '</sup>')
+    .replace(/&lt;sub&gt;/gi, '<sub>')
+    .replace(/&lt;\/sub&gt;/gi, '</sub>');
+}
+
 var toastTimer;
 function toast(msg, type) {
   var el = document.getElementById('toast');

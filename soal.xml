@@ -20,4 +20,33 @@
     <pertanyaan>Hasil dari 3/4 + 2/5 adalah … (tulis dalam bentuk pecahan paling sederhana)</pertanyaan>
     <jawaban>23/20</jawaban>
   </soal>
+  <soal id="4" tipe="uraian" skor="10">
+    <pertanyaan>Jelaskan secara singkat mengapa bilangan bulat negatif dikalikan bilangan bulat negatif menghasilkan bilangan bulat positif.</pertanyaan>
+    <jawaban></jawaban>
+  </soal>
+  <soal id="5" tipe="benar_salah" skor="4">
+    <pertanyaan>Setiap bilangan prima ganjil adalah bilangan ganjil.</pertanyaan>
+    <jawaban>benar</jawaban>
+  </soal>
+  <soal id="6" tipe="pg_kompleks" skor="6">
+    <pertanyaan>Bilangan di bawah ini yang merupakan kelipatan 3 adalah … (pilih semua yang benar)</pertanyaan>
+    <pilihan>A. 12</pilihan>
+    <pilihan>B. 17</pilihan>
+    <pilihan>C. 21</pilihan>
+    <pilihan>D. 22</pilihan>
+    <jawaban>A,C</jawaban>
+  </soal>
+  <soal id="7" tipe="memasangkan" skor="6">
+    <pertanyaan>Pasangkan bentuk sederhana pecahan dengan nilai desimalnya.</pertanyaan>
+    <pasangan>
+      <kiri>1/2</kiri><kanan>A. 0.5</kanan>
+    </pasangan>
+    <pasangan>
+      <kiri>1/4</kiri><kanan>B. 0.25</kanan>
+    </pasangan>
+    <pasangan>
+      <kiri>3/4</kiri><kanan>C. 0.75</kanan>
+    </pasangan>
+    <jawaban>1-A,2-B,3-C</jawaban>
+  </soal>
 </kuis>
