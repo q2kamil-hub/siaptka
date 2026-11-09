@@ -1,104 +1,116 @@
-Berikut adalah pembaruan lengkap untuk **`Catatan_Konfigurasi.md`** yang mencerminkan status akhir **Versi 1.8** (dengan pembaruan rendering `murid.html` untuk mendukung `<sup>`/`<sub>`), serta peta jalan (roadmap) untuk versi-versi selanjutnya.
+# SiapTKA — Catatan Konfigurasi dan Rilis
 
-Silakan salin kode di bawah ini dan timpa isi file `Catatan_Konfigurasi.md` Anda.
-
-```markdown
-# 📘 Dokumentasi Proyek: SiapTKA — Latihan TKA
-
-> **Status rilis terakhir**: Versi 1.8.5 ✅
-> **Pengembangan saat ini**: Versi 1.9 — blokir/nonaktifkan guru dan force logout telah diimplementasikan; grafik tren aktivasi masih direncanakan.
-> **Terakhir diperbarui**: Implementasi manajemen sesi admin Versi 1.9 (`siaptka-v12`).
-> **Tahap Selanjutnya**: Versi 1.9 (Manajemen Lanjutan Admin)
+> **Status**: Versi 2.0 Stabil ✅
+> **Tanggal pembaruan**: 9 November 2026
+> **Ringkasan rilis**: Menyelesaikan manajemen admin Versi 1.9 dan menambahkan halaman 404 kustom.
 
 ---
 
-## 1. Arsitektur & Stack
+## 1. Ringkasan Aplikasi
 
-| Komponen | Teknologi |
+SiapTKA adalah aplikasi latihan Tes Kemampuan Akademik (TKA) berbasis web dan PWA.
+
+| Komponen | Teknologi / penyimpanan |
 |---|---|
-| **Frontend** | HTML, CSS, Vanilla JS (hosting: GitHub Pages / Netlify) |
-| **Backend** | Google Apps Script (GAS) — API JSONP |
-| **Database** | Google Sheets (6 tab: Teachers, Activations, Classes, Students, Results, Packages) |
-| **Penyimpanan Soal** | Google Drive (`*.xml`, dibaca `DriveApp` di `Code.gs`) |
-| **Tipe Aplikasi** | PWA (standalone) dengan **Installation Gate** ketat |
-| **Metode API** | JSONP (GET + callback) via lapisan `api.js` |
-| **Session Guru** | `localStorage` (`siaptka_guru_session`) |
-| **Session Admin** | `localStorage` (`siaptka_admin_token`) |
-| **Draft Jawaban Murid** | `localStorage` (`siaptka_autosave_[class_id]_[student_id]`, auto-hapus setelah submit, TTL 7 hari) |
+| Frontend | HTML, CSS, JavaScript |
+| Backend | Google Apps Script (GAS), API JSONP |
+| Database | Google Sheets: `Teachers`, `Activations`, `Classes`, `Students`, `Results`, `Packages` |
+| Berkas soal | XML UTF-8 di Google Drive, dibaca melalui `DriveApp` |
+| Cache offline | Service Worker, saat ini `siaptka-v13` |
+| Sesi guru/admin | `localStorage` pada perangkat dan browser masing-masing |
 
-### Alur Peran
-```
-👑 Super Admin (token)  →  👩‍🏫 Guru (email+password)  →  🧑‍🎓 Murid (kode kelas + PIN)
-     admin.html               guru.html                  murid.html
-```
+### Peran
 
----
-
-## 2. Daftar File Frontend (GitHub / Netlify)
-
-| File | Fungsi | Status |
+| Peran | Halaman | Fungsi utama |
 |---|---|---|
-| `/` (index.html) | Gerbang peran + **PWA gate ketat** | ✅ |
-| `/landing` (landing.html) | Halaman jualan publik (boleh dibuka di browser biasa) | ✅ |
-| `/guru` (guru.html) | Login/aktivasi guru, dashboard, buat kelas, edit/hapus kelas, laporan. **Kartu kelas punya toggle buka/tutup sendiri, detail kelas menampilkan ringkasan konfigurasi, dan tersedia Preview Paket Soal (khusus guru).** | ✅ |
-| `/murid` (murid.html) | Join via kode kelas + PIN, kerjakan soal (auto-save), submit, pembahasan + review opsi. **Mendukung rendering `<sup>`/`<sub>` pada teks soal.** | ✅ |
-| `/admin` (admin.html) | Panel admin (token), kelola aktivasi & paket soal, reset aktif | ✅ |
-| `api.js` | **Lapisan API terpusat** — satu-satunya file yang tahu GAS | ✅ |
-| `laporan.js` | Grafik (Chart.js) + ekspor Excel/PDF untuk guru | ✅ |
-| `head.js` | Injeksi terpusat favicon & meta tag (anti-duplikasi) | ✅ |
-| `sw.js` | Service Worker (cache versi terbaru) | ✅ |
-| `manifest.json` | Konfigurasi PWA (branding indigo/amber) | ✅ |
-| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | Ikon PWA | ✅ |
-| `favicon-32.png`, `favicon-16.png` | Favicon | ✅ |
+| Super Admin | `admin.html` | Mengelola guru, aktivasi, paket soal, dan sesi guru |
+| Guru | `guru.html` | Mengelola kelas, memantau murid, melihat laporan dan preview paket |
+| Murid | `murid.html` | Bergabung ke kelas, mengerjakan soal, menyimpan draft, dan melihat hasil sesuai konfigurasi kelas |
+| Publik | `landing.html`, `index.html` | Informasi aplikasi dan gerbang akses/PWA |
 
 ---
 
-## 3. Daftar File Backend (Google Apps Script)
+## 2. Berkas Utama
 
-### `Code.gs` — Fitur Kunci
-- **JSONP Routing**: `doGet(e)` dengan penanganan error (try-catch).
-- **Database Init**: `initSheet()` (idempoten, buat 6 tab + header otomatis).
-- **Guru**: Login (SHA-256 + salt), Aktivasi (kode 1 tahun), Pembuatan Kelas (validasi paket), **Edit Kelas** (nama, durasi, acak, tampil pembahasan — diblokir jika sudah ada submit), **Hapus Kelas** (soft delete → status `deleted`, data murid & nilai aman).
-- **Murid**: Join (validasi PIN & kelas, ditolak jika kelas `deleted`), Ambil Soal (acak deterministik), Submit (pencocokan & pembahasan).
-- **Admin**: Generate Aktivasi, Daftar Guru, Kelola Paket (Create/Toggle/Delete), Statistik, Reset Aktif, Unduh Kode Unused.
-- **Blokir Guru (Versi 1.9)**: Admin dapat memblokir/membuka blokir akun. Perubahan status membatalkan sesi aktif; login dan endpoint guru ditolak saat akun diblokir. Kelas serta akses murid yang sudah berjalan tetap tersedia.
-- **Force Logout (Versi 1.9)**: Admin dapat mencabut seluruh sesi guru. Setiap endpoint guru memvalidasi token sesi dan versi sesi yang disimpan di sheet; perangkat dipaksa kembali ke login saat permintaan berikutnya.
-- **Migrasi kolom Guru**: `initSheet()` menambahkan kolom `is_blocked` dan `session_version` ke tab `Teachers` yang sudah ada; baris lama dianggap tidak diblokir dan menggunakan versi sesi `1`.
-- **Sinkronisasi Tipe Data**: Menggunakan `String(cls.tampil_pembahasan) === '1'` untuk mengatasi konversi angka/teks dari Google Sheets.
-- **Scoring**: `hitungSkorSoal` mendukung penilaian parsial untuk `pg_kompleks` dan `memasangkan`.
-
-### Konfigurasi GAS
-- **Deploy**: Web App → Execute as **Me**, Access **Anyone**.
-- Selalu pilih **"New version"** saat mengubah `Code.gs`.
-- Deploy backend dan frontend Versi 1.9 berdekatan: API guru kini mengirim token sesi dan backend menolaknya jika sesi dicabut. Service Worker `siaptka-v12` memuat ulang aset frontend.
-- **Pembacaan XML**: Pastikan `DriveApp` membaca file dengan encoding **UTF-8** (`getDataAsString('UTF-8')`) agar simbol matematika (÷, ×, √) tidak rusak menjadi karakter `�`.
-- Variabel kunci:
-  ```javascript
-  var SPREADSHEET_ID = '1G9qOfRcP0akLDJMPG5e-upT8uH0jcTiNRQrG8fA550I';
-  var ADMIN_TOKEN    = 'TKA_Super_Rahasia_2026!';
-  var GURU_MASA_AKTIF_HARI = 365;
-  ```
+| Berkas | Fungsi |
+|---|---|
+| `index.html` | Gerbang peran; akses aplikasi mengikuti status mode PWA standalone |
+| `landing.html` | Halaman informasi publik SiapTKA |
+| `guru.html` | Login/aktivasi guru, dashboard, kelas, dan laporan |
+| `murid.html` | Alur murid, autosave jawaban, pengerjaan, dan review |
+| `admin.html` | Panel super admin untuk guru, aktivasi, dan paket |
+| `404.html` | Halaman khusus untuk alamat/halaman yang tidak ditemukan |
+| `api.js` | Lapisan pemanggilan API JSONP dan penyimpanan sesi frontend |
+| `Code.gs` | Router, validasi, dan logika backend Google Apps Script |
+| `laporan.js` | Grafik serta ekspor laporan guru |
+| `head.js` | Injeksi favicon dan metadata bersama |
+| `sw.js` | Cache app shell dan perilaku offline |
+| `manifest.json` | Identitas dan konfigurasi instalasi PWA |
+| `soal.xml` | Contoh format paket soal |
+| `konfigurasi_authoring_soal.md` | Panduan authoring soal TKA |
+| `.htaccess` | Rewrite URL dan konfigurasi Apache/XAMPP |
 
 ---
 
-## 4. Struktur Database (Google Spreadsheet)
+## 3. Fitur Stabil
+
+### Guru dan kelas
+- Login dan aktivasi akun guru; password disimpan sebagai hash SHA-256 dengan salt.
+- Pembuatan, pengubahan, penutupan, pembukaan, dan soft-delete kelas.
+- Kelas yang sudah menerima submit tidak dapat diubah; kelas hanya dapat dihapus setelah ditutup.
+- Dashboard menampilkan ringkasan kelas, daftar murid, laporan, serta preview paket soal khusus guru.
+- Preview dan endpoint guru memerlukan sesi bertoken yang divalidasi oleh backend.
+
+### Murid dan soal
+- Murid bergabung menggunakan kode kelas dan PIN jika diatur.
+- Draft jawaban tersimpan di perangkat murid dan dipulihkan saat kembali ke latihan.
+- Tipe soal yang didukung: `pg`, `isian`, `uraian`, `benar_salah`, `pg_kompleks`, dan `memasangkan`.
+- Penilaian pilihan ganda kompleks dan memasangkan mendukung skor parsial.
+- Rendering notasi soal mengizinkan `<sup>` dan `<sub>` melalui whitelist; kunci jawaban dinilai di backend.
+
+### Manajemen admin — Versi 1.9
+- Admin dapat memblokir dan membuka blokir akun guru.
+- Admin dapat mencabut seluruh sesi guru melalui **Force logout**.
+- Perubahan status blokir mencabut sesi aktif. Permintaan guru berikutnya ditolak; guru harus login kembali setelah blokir dibuka.
+- Kelas dan akses murid yang sudah berjalan tidak otomatis dihapus atau dinonaktifkan oleh tindakan blokir.
+- Grafik tren aktivasi kode yang bersifat opsional secara resmi dikeluarkan dari cakupan Versi 1.9 dan dianggap selesai tanpa implementasi fitur.
+
+### Versi 2.0
+- Halaman `404.html` kustom untuk hosting statis dan Apache.
+- Catatan konfigurasi diperbarui sebagai dokumentasi rilis stabil.
+
+---
+
+## 4. Backend dan Database
+
+### Tab dan kolom spreadsheet
+
+`initSheet()` membuat tab dan header yang belum tersedia. Kolom baru pada `Teachers` ditambahkan secara idempoten.
 
 | Tab | Kolom |
 |---|---|
-| `Teachers` | id, email, password_hash, salt, nama, sekolah, aktif_sampai, created_at, is_blocked (`1`/`0`), session_version |
-| `Activations` | kode, dipakai_oleh, tanggal_pakai, status (`unused`/`used`) |
-| `Classes` | id, teacher_id, nama_kelas, paket_id, kode_kelas, pin, durasi_menit, buka, tutup, acak, tampil_pembahasan, status, created_at |
-| `Students` | id, class_id, nama, absen, waktu_masuk |
-| `Results` | id, student_id, class_id, skor, jawaban_json, waktu_selesai, durasi_detik |
-| `Packages` | id, nama_paket, file_xml, harga, aktif (`1`/`0`) |
+| `Teachers` | `id`, `email`, `password_hash`, `salt`, `nama`, `sekolah`, `aktif_sampai`, `created_at`, `is_blocked`, `session_version` |
+| `Activations` | `kode`, `dipakai_oleh`, `tanggal_pakai`, `status` |
+| `Classes` | `id`, `teacher_id`, `nama_kelas`, `paket_id`, `kode_kelas`, `pin`, `durasi_menit`, `buka`, `tutup`, `acak`, `tampil_pembahasan`, `status`, `created_at` |
+| `Students` | `id`, `class_id`, `nama`, `absen`, `waktu_masuk` |
+| `Results` | `id`, `student_id`, `class_id`, `skor`, `jawaban_json`, `waktu_selesai`, `durasi_detik` |
+| `Packages` | `id`, `nama_paket`, `file_xml`, `harga`, `aktif` |
 
-**Catatan Penting**: Google Sheets sering mengubah input `1` menjadi angka (number) dan `0` menjadi boolean/angka. Backend selalu menggunakan `String(value)` sebelum membandingkan dengan `'1'`.
+Nilai `is_blocked` menggunakan `1` atau `0`. `session_version` dinaikkan untuk mencabut sesi; akun lama yang kolomnya baru ditambahkan menggunakan versi awal `1`. Backend membandingkan nilai spreadsheet dengan normalisasi string bila diperlukan.
+
+### Konfigurasi dan deploy GAS
+1. Pastikan `SPREADSHEET_ID` menunjuk ke spreadsheet yang benar.
+2. Simpan `ADMIN_TOKEN` sebagai rahasia. Jangan menaruh token atau password di dokumentasi, commit, tautan, atau pesan.
+3. Deploy sebagai Web App dengan **Execute as: Me** dan akses **Anyone** sesuai kebutuhan API JSONP.
+4. Setiap perubahan `Code.gs` memerlukan deploy **New version**.
+5. Untuk perubahan manajemen sesi, deploy backend dan frontend Versi 1.9/2.0 yang cocok. Login harus menerima `preview_token`; request dashboard menyertakan token tersebut.
+6. File `.gs` disalin ke editor GAS secara manual bila proyek Apps Script tidak terhubung langsung ke repositori.
 
 ---
 
-## 5. Format `soal.xml` (Google Drive)
+## 5. Format Paket `soal.xml`
 
-Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `matematika.xml`, sharing **"Anyone with the link – Viewer"**. Simpan file sebagai **UTF-8 (without BOM)**.
+Contoh struktur minimum:
 
 ```xml
 <paket nama="Matematika Dasar" versi="1">
@@ -110,146 +122,66 @@ Contoh: `/paket/matematika.xml` → **upload ke Google Drive** dengan nama `mate
     <pilihan>D. 200</pilihan>
     <jawaban>B</jawaban>
   </soal>
-  <soal id="2" tipe="pg" skor="2">
-    <pertanyaan>Nilai dari 2&lt;sup&gt;3&lt;/sup&gt; adalah ...</pertanyaan>
-    <pilihan>A. 6</pilihan>
-    <pilihan>B. 8</pilihan>
-    <pilihan>C. 9</pilihan>
-    <pilihan>D. 12</pilihan>
-    <jawaban>B</jawaban>
-  </soal>
 </paket>
 ```
 
-**Aturan Penulisan XML**:
-1. Pilihan wajib diawali huruf + titik (`"A. ..."`), jawaban PG = huruf, isian = teks.
-2. **Simbol Khusus**: Gunakan karakter UTF-8 murni (×, ÷, √, ≤, ≥, ≠). **Dilarang** menggunakan huruf `v` untuk akar.
-3. **Pangkat/Indeks**: Karena ini file XML, tag HTML **wajib** di-escape. Gunakan `&lt;sup&gt;` untuk pangkat dan `&lt;sub&gt;` untuk indeks.
-4. Simpan file sebagai UTF-8 tanpa BOM agar tidak muncul karakter `�` di halaman siswa.
+Aturan penulisan:
+- Simpan XML sebagai UTF-8 tanpa BOM; berkas di Google Drive harus dapat dibaca oleh akun GAS.
+- Pilihan PG diawali huruf dan titik; kunci PG berisi huruf pilihan.
+- Gunakan karakter UTF-8 untuk simbol seperti `×`, `÷`, `√`, `≤`, `≥`, dan `≠`.
+- Escape tag notasi HTML di dalam XML, misalnya `&lt;sup&gt;` dan `&lt;sub&gt;`.
+- Kunci `pg_kompleks` ditulis sebagai huruf dipisah koma, misalnya `A,C`.
+- Kunci `memasangkan` ditulis sebagai daftar pasangan, misalnya `1-A,2-B,3-C`.
+- Soal `uraian` dikumpulkan untuk penilaian manual dan mendapat skor otomatis nol.
 
 ---
 
-## 6. Keamanan yang Sudah Diterapkan
+## 6. Keamanan dan Sesi
 
-| Lapisan | Implementasi |
-|---|---|
-| **PWA Gate** | Pilihan peran hanya muncul dalam mode standalone. Browser biasa selalu menampilkan petunjuk instalasi (termasuk Safari/iOS); status instalasi tidak ditebak dari `localStorage`. |
-| **Password Hashing** | SHA-256 + salt unik per guru. |
-| **Anti Brute-force** | `Utilities.sleep(800)` di `handleTeacherLogin`. |
-| **Kunci Jawaban** | Tidak dikirim ke `murid.html`; pencocokan di server. |
-| **Auto-save Murid** | Draft jawaban hanya tersimpan di perangkat murid (`localStorage`), dihapus otomatis setelah submit berhasil. |
-| **Anti Submit Ganda** | Dicek di server berdasarkan `student_id` + `class_id`. |
-| **Admin Token** | Semua endpoint admin divalidasi dengan token rahasia. |
-| **Escape HTML** | Fungsi `esc()` untuk atribut, dan `rich()` untuk teks soal (mengizinkan whitelist `<sup>` dan `<sub>` guna mencegah XSS). |
-| **SW Cache** | Request ke GAS & CDN tidak di-cache. |
+- Password guru di-hash dengan SHA-256 dan salt unik; login memiliki jeda anti-brute-force sederhana.
+- Endpoint admin memvalidasi token admin.
+- Kunci jawaban tidak dikirim pada alur soal murid; pengecekan jawaban dilakukan di server.
+- HTML keluaran menggunakan escaping; teks soal hanya membuka whitelist `<sup>` dan `<sub>`.
+- Token sesi guru disimpan di `localStorage` dan dicocokkan dengan cache GAS serta `session_version` pada sheet.
+- Force logout menaikkan versi sesi. Browser guru menghapus sesi lokal dan kembali ke layar login ketika menerima respons sesi dicabut pada permintaan API berikutnya.
+- Autosave jawaban murid bersifat lokal pada perangkat murid.
+- Service Worker melewatkan request ke GAS dan CDN; jangan cache respons API.
+- Bila token admin atau password pernah dibagikan, segera ganti kredensial tersebut dan deploy ulang konfigurasi/backend.
 
 ---
 
-## 7. Roadmap Pengembangan (Versi Selanjutnya)
+## 7. Halaman 404 dan Hosting
 
-### ✅ Prioritas 1: Manajemen Kelas & Guru (Versi 1.5 — SELESAI)
-- [x] **Edit Kelas**: Guru dapat mengubah nama kelas, durasi, acak, dan tampil pembahasan selama belum ada murid yang submit.
-- [x] **Hapus Kelas (Soft Delete)**: Mengubah status kelas menjadi `deleted`.
-- [x] **Edit Profil Guru**: Form untuk mengganti Nama, Sekolah, dan Password.
+`404.html` menggunakan tautan beranda dan halaman publik yang menyesuaikan root aplikasi untuk domain root, GitHub Pages pada path `/siaptka/`, dan instalasi lokal `/siaptka-1/`.
 
-### ✅ Prioritas 2: Validasi & Normalisasi Input (Versi 1.6 — SELESAI)
-- [x] **Normalisasi Form**: `.trim()` dan standarisasi huruf di semua input frontend & backend.
-- [x] **Validasi PIN/Kode Kelas**: Pastikan input murid hanya huruf/angka, tanpa spasi.
-- [x] **Validasi Form Kelas**: Durasi min 1 menit, max 180 menit.
-- [x] **Hapus Kelas dengan Syarat Tutup**: Kelas hanya dapat dihapus jika statusnya `closed`.
+- **Apache/XAMPP**: `.htaccess` proyek sudah mengatur `ErrorDocument 404 /siaptka-1/404.html`. Pastikan `mod_rewrite` aktif dan `.htaccess` diizinkan.
+- **Netlify**: Netlify otomatis memakai `404.html` di root publish directory untuk halaman yang tidak ditemukan.
+- **GitHub Pages**: GitHub Pages memakai `404.html` di root branch/direktori publish. Pastikan file ikut dipublikasikan.
+- Service Worker menggunakan cache `siaptka-v13` dan memasukkan `404.html` ke app shell.
 
-### ✅ Prioritas 3: Auto-save & Review Jawaban (Versi 1.7 — SELESAI)
-- [x] **Auto-save Jawaban**: draft disimpan di `localStorage` dengan kunci `siaptka_autosave_[class_id]_[student_id]`.
-- [x] **Ingat Form Join**: kode/nama/absen/PIN terakhir disimpan sehingga setelah refresh murid cukup menekan "Mulai Latihan".
-- [x] **Review Jawaban (semua opsi)**: `handleSubmitResult` mengirim `pilihan`, `tipe`, dan `dijawab` per soal.
-- [x] **Service Worker**: `CACHE_VERSION` dinaikkan agar murid menerima `murid.html` versi baru.
-
-### ✅ Prioritas 4: Variasi Tipe Soal & Rendering (Versi 1.8 — SELESAI)
-- [x] Menambahkan dukungan tipe soal **uraian**, **benar/salah**, **pilihan ganda kompleks**, dan **memasangkan**.
-- [x] **Penilaian parsial** untuk pilihan ganda kompleks dan memasangkan.
-- [x] Memperbarui halaman murid agar setiap tipe soal ditampilkan dengan bentuk input yang sesuai.
-- [x] **Dukungan Notasi Matematika**: Memperbarui `murid.html` dengan fungsi `rich()` yang mengizinkan tag `<sup>` dan `<sub>` (di-escape dari XML) untuk merender pangkat dan indeks bawah dengan rapi.
-
-#### Aturan Skor per Tipe Soal (di Code.gs, sisi server)
-
-| Tipe | Format kunci (`<jawaban>`) | Penilaian |
-|---|---|---|
-| `pg` | Huruf tunggal (mis. `B`) | Skor penuh jika huruf cocok, selain itu 0. |
-| `isian` | Teks bebas | Skor penuh jika teks cocok (case-insensitive), selain itu 0. |
-| `uraian` | Kosong (tidak digunakan) | **Skor 0** — dikumpulkan sebagai teks, penilain manual di luar aplikasi. |
-| `benar_salah` | `benar` atau `salah` | Skor penuh jika jawaban murid sama persis (case-insensitive), selain itu 0. |
-| `pg_kompleks` | Daftar huruf dipisah koma (mis. `A,C`) | Skor dibagi rata untuk setiap kunci benar. Setiap opsi benar yang dipilih = 1 bagian. Opsi salah tidak menambah/mengurangi. Total per soal tidak melebihi skor maks. |
-| `memasangkan` | Daftar pasangan `1-A,2-B,3-C` | Skor dibagi rata untuk setiap pasangan kiri yang cocok. Pasangan yang tidak cocok/belum dipilih = 0. Total per soal tidak melebihi skor maks. |
-
-### Versi 1.8.5 — Penyempurnaan Dashboard Guru
-- [x] **Preview Paket Soal**: Guru dapat melihat isi paket soal beserta kunci jawabannya dari form buat kelas dan detail kelas. Preview memakai sesi guru bertoken dan tidak menggunakan endpoint soal murid yang sengaja tidak mengirim kunci.
-- [x] **Toggle Buka/Tutup di Kartu Kelas**: Kontrol tersedia langsung pada kartu tanpa membuka detail, disertai konfirmasi, indikator status, dan pemulihan tombol jika request gagal.
-- [x] **Ringkasan Konfigurasi Kelas**: Detail kelas menampilkan paket soal, durasi, PIN, status acak urutan soal, dan status tampilkan pembahasan ke murid.
-- [x] **Perapian Tata Letak Guru**: Tata letak kartu, detail, dan kontrol preview responsif; diperiksa pada lebar layar 375 px tanpa horizontal overflow.
-
-### Perbaikan PWA — Gerbang Akses Mobile
-- [x] Halaman indeks selalu menampilkan pesan saat dibuka dari browser biasa, termasuk jika browser tidak mendukung prompt instalasi.
-- [x] Pilihan peran hanya dibuka berdasarkan mode standalone; penanda `localStorage` tidak lagi dapat membuka akses setelah aplikasi dihapus.
-- [x] Petunjuk instalasi dibedakan untuk iOS/Safari, Android, dan browser desktop.
-- [x] Kegagalan pendaftaran Service Worker ditampilkan dengan pesan yang jelas; cache kini `siaptka-v12` untuk memuat perubahan manajemen sesi.
-
-### Versi 1.9 — Manajemen Lanjutan Admin
-Fitur kontrol untuk Anda sebagai pemilik aplikasi.
-- [x] Blokir/Nonaktifkan Guru: Tambah kolom `is_blocked`, tombol blokir/buka blokir pada `admin.html`, dan penolakan akses endpoint guru saat akun diblokir. Perubahan status mencabut sesi guru; kelas yang sudah ada dan akses murid tidak dinonaktifkan.
-- [x] Force Logout: Admin menaikkan versi sesi guru; semua token lama ditolak oleh endpoint guru dan browser kembali ke layar login ketika melakukan permintaan berikutnya.
-- [ ] (Opsional) Grafik tren aktivasi kode.
-
-### Versi 2.0 — Utilitas & Optimasi (Rilis Final)
-Penyempurnaan teknis sebelum rilis besar.
-- [ ] Halaman 404.html kustom.
-- [ ] (Opsional) Script backup mingguan di GAS.
-- [ ] Pembaruan `Catatan_Konfigurasi.md` secara menyeluruh untuk menandai rilis stabil.
+Jika nama folder atau base path deployment berubah dari `/siaptka/` atau `/siaptka-1/`, sesuaikan deteksi root aplikasi di `404.html`.
 
 ---
 
-## 8. File yang Perlu Dilampirkan Saat Pindah ke Chat Baru
+## 8. Rilis dan Pemeliharaan
 
-Untuk melanjutkan ke Versi 1.9, lampirkan file berikut ke chat baru:
-1. **`Code.gs`** (Backend versi 1.9 — blokir guru, validasi sesi, dan force logout).
-2. **`api.js`** (Lapisan API versi 1.9 dengan token sesi guru).
-3. **`guru.html`** (Frontend guru).
-4. **`murid.html`** (Frontend murid dengan dukungan tipe soal baru + Auto-save + Review Jawaban + Render `<sup>`/`<sub>`).
-5. **`admin.html`** (Panel admin versi 1.6).
-6. **`sw.js`** (Service Worker — `CACHE_VERSION` saat ini `siaptka-v12`).
-7. **`soal.xml`** (Contoh tipe soal baru: uraian, benar_salah, pg_kompleks, memasangkan, beserta notasi `<sup>`).
-8. **File ini (`Catatan_Konfigurasi.md`)**.
-9. **`Konfigurasi_Authoring_Soal.md`** (Panduan prompt AI untuk membuat soal TKA).
+### Rilis stabil
 
-*(File lain tidak perlu dilampirkan kecuali ada error spesifik di file tersebut).*
+**SiapTKA Versi 2.0 dinyatakan stabil** setelah fitur manajemen admin Versi 1.9 dan halaman 404 Versi 2.0 tersedia pada source proyek. Grafik tren aktivasi telah dikeluarkan dari cakupan berdasarkan keputusan produk dan tidak menjadi pekerjaan tertunda.
 
----
+### Checklist publikasi
+- [ ] Deploy `Code.gs` sebagai versi Web App baru jika backend berubah.
+- [ ] Publikasikan berkas frontend, `404.html`, dan `sw.js`.
+- [ ] Pastikan host menggunakan `404.html` dan route beranda pada base path yang benar.
+- [ ] Uji beranda, login guru, join murid, panel admin, halaman tidak ditemukan, dan force logout.
+- [ ] Pastikan Service Worker aktif dengan cache `siaptka-v13`.
+- [ ] Pastikan tidak ada token admin, password, atau data sensitif di commit atau dokumentasi.
 
-### ⚠️ Catatan Penting: Copy-Paste Manual Code.gs ke Google Apps Script
-
-Setelah menyelesaikan perubahan kode di VS Code, salin isi file `Code.gs` dan tempel secara manual ke editor Google Apps Script, lalu pilih **"New version"** saat deploy. Google Apps Script tidak mendukung upload file `.gs` secara langsung — harus dilakukan copy-paste manual.
-
----
-
-### ⚠️ Catatan Penting: Konfigurasi Server untuk URL Rewriting
-
-Menghapus ekstensi `.html` dari tautan hanya berfungsi jika server dikonfigurasi untuk melayani file `.html` saat URL tanpa ekstensi diakses. Berikut contoh konfigurasi:
-
-**Netlify** (`_redirects` di root publik):
-```
-/guru    /guru.html    200
-/murid   /murid.html   200
-/admin   /admin.html   200
-/landing /landing.html 200
-/        /index.html   200
-```
-
-**Apache (`.htaccess`)**:
-```
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^([a-zA-Z0-9_-]+)$ $1.html [L]
-```
-
-**GitHub Pages**: Tidak mendukung rewrite native. Gunakan folder per halaman (mis. `guru/index.html`) atau hosting lain yang mendukung rewrite.
-```
+### Riwayat versi utama
+- **1.5** — Pengelolaan kelas dan profil guru.
+- **1.6** — Validasi dan normalisasi input.
+- **1.7** — Autosave dan review jawaban.
+- **1.8** — Variasi tipe soal, skor parsial, dan notasi matematika.
+- **1.8.5** — Penyempurnaan dashboard guru dan preview paket.
+- **1.9** — Blokir/nonaktifkan guru dan force logout.
+- **2.0** — Halaman 404 kustom dan penandaan rilis stabil.
